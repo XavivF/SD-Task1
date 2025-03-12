@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="9c1f9199-a4f1-41a1-92e9-2f541f7ffbc1" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/Single-Node/XMLRPC/InsultFilter.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Single-Node/Pyro/clientPYRO.py" beforeDir="false" afterPath="$PROJECT_DIR$/Single-Node/Pyro/clientPYRO.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Single-Node/Pyro/serverPYRO.py" beforeDir="false" afterPath="$PROJECT_DIR$/Single-Node/Pyro/serverPYRO.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Single-Node/RabbitMQ/InsultBroadcaster.py" beforeDir="false" afterPath="$PROJECT_DIR$/Single-Node/RabbitMQ/InsultBroadcaster.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Single-Node/RabbitMQ/InsultConsumer.py" beforeDir="false" afterPath="$PROJECT_DIR$/Single-Node/RabbitMQ/InsultConsumer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Single-Node/RabbitMQ/InsultProducer.py" beforeDir="false" afterPath="$PROJECT_DIR$/Single-Node/RabbitMQ/InsultProducer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Single-Node/RabbitMQ/InsultReciever.py" beforeDir="false" afterPath="$PROJECT_DIR$/Single-Node/RabbitMQ/InsultReciever.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Single-Node/Redis/AngryPublisher.py" beforeDir="false" afterPath="$PROJECT_DIR$/Single-Node/Redis/AngryPublisher.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Single-Node/Redis/InsultBroadcaster.py" beforeDir="false" afterPath="$PROJECT_DIR$/Single-Node/Redis/InsultBroadcaster.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Single-Node/Redis/InsultConsumer.py" beforeDir="false" afterPath="$PROJECT_DIR$/Single-Node/Redis/InsultConsumer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Single-Node/Redis/InsultFilter.py" beforeDir="false" afterPath="$PROJECT_DIR$/Single-Node/Redis/InsultFilter.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Single-Node/Redis/InsultProducer.py" beforeDir="false" afterPath="$PROJECT_DIR$/Single-Node/Redis/InsultProducer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Single-Node/Redis/InsultReciever.py" beforeDir="false" afterPath="$PROJECT_DIR$/Single-Node/Redis/InsultReciever.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Single-Node/Redis/TextPublisher.py" beforeDir="false" afterPath="$PROJECT_DIR$/Single-Node/Redis/TextPublisher.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Single-Node/XMLRPC/clientXMLRPC.py" beforeDir="false" afterPath="$PROJECT_DIR$/Single-Node/XMLRPC/InsultClient.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Single-Node/XMLRPC/serverXMLRPC.py" beforeDir="false" afterPath="$PROJECT_DIR$/Single-Node/XMLRPC/InsultServiceHost.py" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 4
+}</component>
+  <component name="ProjectId" id="2uCvczoQr4bMRnrz5jjQS3NXQde" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;//wsl.localhost/Debian/home/joan/SD/SD-Task1&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-822845ee3bb5-JavaScript-PY-243.23654.177" />
+        <option value="bundled-python-sdk-91d3a02ef49d-43b77aa2d136-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-243.23654.177" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="9c1f9199-a4f1-41a1-92e9-2f541f7ffbc1" name="Changes" comment="" />
+      <created>1741765454397</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1741765454397</updated>
+      <workItem from="1741765455589" duration="1206000" />
+      <workItem from="1741766712855" duration="352000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+</project>
