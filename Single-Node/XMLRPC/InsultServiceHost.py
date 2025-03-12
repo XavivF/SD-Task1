@@ -1,5 +1,6 @@
 from xmlrpc.server import SimpleXMLRPCServer
 from xmlrpc.server import SimpleXMLRPCRequestHandler
+import xmlrpc.client
 import random
 
 # Restrict to a particular path.
@@ -15,6 +16,21 @@ with SimpleXMLRPCServer(('localhost', 8000),
         def __init__(self):
             self.insults = []
             self.results = []
+            self.subscribers = []
+
+        def add_subscriber(self, url):
+            if url not in self.subscribers:
+                self.subscribers.append(url)
+                return f"Subscriber {url} added."
+            return f"Subscriber {url} already exists."
+
+        def notify_subscribers(self, insult):
+            for subscriber_url in self.subscribers:
+                try:
+                    proxy = xmlrpc.client.ServerProxy(subscriber_url)
+                    proxy.notify(insult)
+                except Exception as e:
+                    print(f"Error notifying {subscriber_url}: {e}")
 
         def add_insult(self, insult):
             self.insults.append(insult)
