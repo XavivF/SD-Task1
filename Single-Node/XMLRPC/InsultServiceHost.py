@@ -1,4 +1,3 @@
-from random import Random
 from xmlrpc.server import SimpleXMLRPCServer
 from xmlrpc.server import SimpleXMLRPCRequestHandler
 import random
@@ -8,13 +7,14 @@ class RequestHandler(SimpleXMLRPCRequestHandler):
     rpc_paths = ('/RPC2',)
 
 # Create server
-with SimpleXMLRPCServer(('10.112.204.7', 8000),
+with SimpleXMLRPCServer(('localhost', 8000),
                         requestHandler=RequestHandler) as server:
     server.register_introspection_functions()
 
     class Insults:
         def __init__(self):
             self.insults = []
+            self.results = []
 
         def add_insult(self, insult):
             self.insults.append(insult)
@@ -28,6 +28,19 @@ with SimpleXMLRPCServer(('10.112.204.7', 8000),
                 return "No insults available"
             i = random.randint(0, len(self.insults)-1)
             return self.insults[i]
+
+        def filter(self, text, ):
+            censored_text = ""
+            for word in text.split():
+                if word in self.insults:
+                    censored_text += "CENSORED "
+                else:
+                    censored_text += word + " "
+            self.results.append(censored_text)
+            return censored_text
+
+        def get_results(self):
+            return self.results
 
     insults = Insults()
     server.register_instance(insults)
