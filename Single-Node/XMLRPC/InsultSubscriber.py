@@ -14,10 +14,10 @@ class Subscriber:
         print(f"New insult received: {insult}")
         return "Insult received."
 
-server = SimpleXMLRPCServer(('localhost', int(sys.argv[1])), requestHandler=RequestHandler, allow_none=True)
+server = SimpleXMLRPCServer(('localhost', 8001), requestHandler=RequestHandler, allow_none=True)
 subscriber_service = Subscriber()
 
 server.register_function(subscriber_service.notify, "notify")
 
-print(f"Subscriber running on port {sys.argv[1]}...")
+print(f"Subscriber running on port 8001...")
 server.serve_forever()

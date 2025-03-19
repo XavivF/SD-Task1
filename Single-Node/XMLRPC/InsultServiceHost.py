@@ -29,8 +29,12 @@ with SimpleXMLRPCServer(('localhost', 8000),
                 try:
                     proxy = xmlrpc.client.ServerProxy(subscriber_url)
                     proxy.notify(insult)
+                    print(f"Subscriber {subscriber_url} notified. Insult: {insult}")
+                    print("Notified subscriber.")
                 except Exception as e:
                     print(f"Error notifying {subscriber_url}: {e}")
+            return "Subscribers notified."
+
 
         def add_insult(self, insult):
             self.insults.append(insult)
@@ -43,9 +47,10 @@ with SimpleXMLRPCServer(('localhost', 8000),
             if len(self.insults) == 0:
                 return "No insults available"
             i = random.randint(0, len(self.insults)-1)
+            print(f"Insult escollit: {self.insults[i]}")
             return self.insults[i]
 
-        def filter(self, text, ):
+        def filter(self, text):
             censored_text = ""
             for word in text.split():
                 if word in self.insults:
@@ -53,6 +58,7 @@ with SimpleXMLRPCServer(('localhost', 8000),
                 else:
                     censored_text += word + " "
             self.results.append(censored_text)
+            print(f"Filtered text: {censored_text}")
             return censored_text
 
         def get_results(self):
