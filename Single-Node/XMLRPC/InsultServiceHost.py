@@ -2,6 +2,8 @@ from xmlrpc.server import SimpleXMLRPCServer
 from xmlrpc.server import SimpleXMLRPCRequestHandler
 import xmlrpc.client
 import random
+import signal
+import threading
 
 # Restrict to a particular path.
 class RequestHandler(SimpleXMLRPCRequestHandler):
@@ -66,7 +68,7 @@ with SimpleXMLRPCServer(('localhost', 8000),
 
     insults = Insults()
     server.register_instance(insults)
-
+    signal.signal(signal.SIGUSR1, insults.get_insults())
     # Run the server's main loop
     print("Server is running...")
     server.serve_forever()
