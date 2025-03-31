@@ -65,10 +65,13 @@ with SimpleXMLRPCServer(('localhost', 8000),
 
         def get_results(self):
             return self.results
+        
+        def handle_sigusr1(self, signum, frame):
+            print("Insults: ", self.get_insults())
 
     insults = Insults()
     server.register_instance(insults)
-    signal.signal(signal.SIGUSR1, insults.get_insults())
+    signal.signal(signal.SIGUSR1, insults.handle_sigusr1)
     # Run the server's main loop
     print("Server is running...")
     server.serve_forever()
