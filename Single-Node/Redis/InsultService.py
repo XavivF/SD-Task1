@@ -14,13 +14,9 @@ class Insults:
 
     def add_insult(self, insult):
         current_insults = client.smembers(self.insultList)
-        if insult not in current_insults:
-            client.sadd(self.insultList, insult)
-            print(f"Insult added: {insult}")
-            return f"Insult added: {insult}"
-        else:
-            print(f"Insult already exists")
-            return f"Insult already exists"
+        client.sadd(self.insultList, insult)
+        print(f"Insult added: {insult}")
+        return f"Insult added: {insult}"
 
     def get_insults(self):
         insult = client.smembers(self.insultList)
@@ -34,7 +30,7 @@ class Insults:
 
     def delete_all(self):
         while client.scard(self.insultList) > 0:
-            client.srem(self.insultList)
+            client.spop(self.insultList)
         print(self.get_insults())
         print("List deleted")
 
