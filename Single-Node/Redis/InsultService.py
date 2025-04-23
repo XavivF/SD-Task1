@@ -1,60 +1,72 @@
 import redis
 import random
 import time
+import threading
 # Connect to Redis
 client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
 
 class Insults:
     def __init__(self):
         self.results = []
-        self.channel_name = "Insults_channel"
+        self.channel_insults = "Insults_channel"
+        self.channel_broadcast = "Insults_broadcast"
         self.insultList = "INSULTS"
-        self.len = client.llen(self.insultList)
 
     def add_insult(self, insult):
-        current_insults = client.lrange(self.insultList, 0, -1)
+        current_insults = client.smembers(self.insultList)
         if insult not in current_insults:
-            insult = client.lpush(self.insultList, insult)
-            self.len+=1
+            client.sadd(self.insultList, insult)
+            print(f"Insult added: {insult}")
             return f"Insult added: {insult}"
         else:
+            print(f"Insult already exists")
             return f"Insult already exists"
 
     def get_insults(self):
-        insult = client.lrange(self.insultList, 0, -1)
+        insult = client.smembers(self.insultList)
         return f"Insult list: {insult}"
 
     def insult_me(self):
-        if self.len == 0:
-            return "No insults available"
-        else:
-            i = random.randint(0, self.len - 1)
-            insult = client.lindex("INSULTS", random.randint(0, self.len - 1))
-            print("i: " + str(i))
+        if client.scard(self.insultList) != 0:
+            insult = client.srandmember(self.insultList)
             print(f"Insult escollit: {insult}")
             return insult
 
     def delete_all(self):
-        while self.len > 0:
-            client.lpop(self.insultList)
-            self.len-=1
+        while client.scard(self.insultList) > 0:
+            client.srem(self.insultList)
         print(self.get_insults())
-        return "List deleted"
+        print("List deleted")
 
     def notify_subscribers(self):
-        pubsub = client.pubsub()
-        insult = insults.insult_me()
-        client.publish(self.channel_name, insult)
-        print("Notified subscribers.")
-        return "Subscribers notified."
+        while True:
+            insult = insults.insult_me()
+            if insult:
+                client.publish(self.channel_broadcast, insult)
+                print("Notified subscribers.")
+            time.sleep(5)
+
+    def listen(self):
+        while True:
+            for message in pubsub.listen():
+                print(f"Process message {message['data']}")
+                if message['type'] == 'message':
+                    insult = message['data']
+                    print(f"Received insult: {insult}")
+                    self.add_insult(insult)
 
 insults = Insults()
+pubsub = client.pubsub()
+pubsub.subscribe(insults.channel_insults)
 
-print(insults.delete_all())
+insults.delete_all()
+
+#thread1 = threading.Thread(target=insults.notify_subscribers)
+thread2 = threading.Thread(target=insults.listen)
+
+#thread1.start()
+thread2.start()
 
 while True:
-    print(insults.insult_me())
     print(insults.get_insults())
-    # Start listening for insults
-    insults.notify_subscribers()
     time.sleep(5)

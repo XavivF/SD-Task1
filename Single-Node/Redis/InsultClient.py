@@ -12,20 +12,19 @@ insults = ["Cap de melo", "Olaaa caracola", "Adeuu", "1234", "Beneit",
            "Tros de quòniam", "Poca-solta",
            "Bocamoll", "Tocat del bolet"]
 
-def enviar_insults(client, channel_name, insults):
+def enviar_insults():
     for insult in insults:
         client.publish(channel_name, insult)
         print(f"Produced: {insult}")
 
-def subscribe_to_insults(self):
+def subscribe_to_insults():
         pubsub = client.pubsub()
-        pubsub.subscribe(self.channel_name)
-        print(f"Subscribed to {self.channel_name}")
+        pubsub.subscribe(channel_name)
+        print(f"Subscribed to {channel_name}")
         for message in pubsub.listen():
             if message['type'] == 'message':
                 insult = message['data']
                 print(f"Received insult: {insult}")
-                print(self.add_insult(insult))
 
-enviar_insults(client, channel_name, insults)
-subscribe_to_insults(self)
+enviar_insults()
+subscribe_to_insults()
