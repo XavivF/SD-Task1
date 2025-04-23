@@ -17,4 +17,15 @@ def enviar_insults(client, channel_name, insults):
         client.publish(channel_name, insult)
         print(f"Produced: {insult}")
 
+def subscribe_to_insults(self):
+        pubsub = client.pubsub()
+        pubsub.subscribe(self.channel_name)
+        print(f"Subscribed to {self.channel_name}")
+        for message in pubsub.listen():
+            if message['type'] == 'message':
+                insult = message['data']
+                print(f"Received insult: {insult}")
+                print(self.add_insult(insult))
+
 enviar_insults(client, channel_name, insults)
+subscribe_to_insults(self)

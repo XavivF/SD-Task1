@@ -33,6 +33,7 @@ class Insults:
             print("i: " + str(i))
             print(f"Insult escollit: {insult}")
             return insult
+
     def delete_all(self):
         while self.len > 0:
             client.lpop(self.insultList)
@@ -40,15 +41,12 @@ class Insults:
         print(self.get_insults())
         return "List deleted"
 
-    def subscribe_to_insults(self):
+    def notify_subscribers(self):
         pubsub = client.pubsub()
-        pubsub.subscribe(self.channel_name)
-        print(f"Subscribed to {self.channel_name}")
-        for message in pubsub.listen():
-            if message['type'] == 'message':
-                insult = message['data']
-                print(f"Received insult: {insult}")
-                print(self.add_insult(insult))
+        insult = insults.insult_me()
+        client.publish(self.channel_name, insult)
+        print("Notified subscribers.")
+        return "Subscribers notified."
 
 insults = Insults()
 
@@ -58,5 +56,5 @@ while True:
     print(insults.insult_me())
     print(insults.get_insults())
     # Start listening for insults
-    insults.subscribe_to_insults()
+    insults.notify_subscribers()
     time.sleep(5)
