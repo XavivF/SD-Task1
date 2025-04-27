@@ -1,9 +1,9 @@
-from xmlrpc.server import SimpleXMLRPCServer
-from xmlrpc.server import SimpleXMLRPCRequestHandler
-import xmlrpc.client
 import random
 import signal
-import threading
+import xmlrpc.client
+from xmlrpc.server import SimpleXMLRPCRequestHandler
+from xmlrpc.server import SimpleXMLRPCServer
+
 
 # Restrict to a particular path.
 class RequestHandler(SimpleXMLRPCRequestHandler):
@@ -16,8 +16,8 @@ with SimpleXMLRPCServer(('localhost', 8000),
 
     class Insults:
         def __init__(self):
-            self.insults = []
-            self.results = []
+            self.insults = []   # received insults
+            self.results = []   # censored text
             self.subscribers = []
 
         def add_subscriber(self, url):
@@ -49,7 +49,7 @@ with SimpleXMLRPCServer(('localhost', 8000),
             if len(self.insults) == 0:
                 return "No insults available"
             i = random.randint(0, len(self.insults)-1)
-            print(f"Insult escollit: {self.insults[i]}")
+            print(f"Chosen insult: {self.insults[i]}")
             return self.insults[i]
 
         def filter(self, text):
@@ -59,7 +59,8 @@ with SimpleXMLRPCServer(('localhost', 8000),
                     censored_text += "CENSORED "
                 else:
                     censored_text += word + " "
-            self.results.append(censored_text)
+            if censored_text not in self.results:
+                self.results.append(censored_text)
             print(f"Filtered text: {censored_text}")
             return censored_text
 
@@ -69,9 +70,13 @@ with SimpleXMLRPCServer(('localhost', 8000),
         def handle_sigusr1(self, signum, frame):
             print("Insults: ", self.get_insults())
 
+        def handle_sigusr2(self, signum, frame):
+            print("Results: ", self.get_results())
+
     insults = Insults()
     server.register_instance(insults)
     signal.signal(signal.SIGUSR1, insults.handle_sigusr1)
+    signal.signal(signal.SIGUSR2, insults.handle_sigusr2)
     # Run the server's main loop
     print("Server is running...")
     server.serve_forever()

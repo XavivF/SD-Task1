@@ -15,27 +15,31 @@ PID_IC=$!
 
 echo "$PID_ISH, $PID_IS, $PID_IC"
 echo "All services have started successfully"
-echo "Press enter K to stop the services or press I to read the current insult list"
+echo "Press K to stop the services, press I to read the current insult list or press T to read the texts received"
 while true; do
     read key
     if [ "$key" == "K" ]; then
-        echo "Stopping services..."
-        kill -15 $PID_ISH
-        kill -15 $PID_IS
-        kill -15 $PID_IC
-        if ps -p $PID_ISH > /dev/null || ps -p $PID_IS > /dev/null || ps -p $PID_IC > /dev/null; then
-            echo "Some services are still running"
-        else
-            echo "All services have stopped successfully"
-        fi
-        break
+      echo "Stopping services..."
+      kill -15 $PID_ISH
+      kill -15 $PID_IS
+      kill -15 $PID_IC
+      if ps -p $PID_ISH > /dev/null || ps -p $PID_IS > /dev/null || ps -p $PID_IC > /dev/null; then
+          echo "Some services are still running"
+      else
+          echo "All services have stopped successfully"
+      fi
+      break
     elif [ "$key" == "I" ]; then
-        kill -s SIGUSR1 $PID_ISH
-        echo "Reading current insult list..."
-        grep Insults: InsultServiceHost.log | tail -n 1
+      kill -s SIGUSR1 $PID_ISH
+      echo "Reading current insult list..."
+      grep Insults: InsultServiceHost.log | tail -n 1
+    elif [ "$key" == "T" ]; then
+      kill -s SIGUSR2 $PID_ISH
+      echo "Reading current text list..."
+      grep Results: InsultServiceHost.log | tail -n 1
     else
-        echo "Invalid key pressed."
+      echo "Invalid key pressed."
     fi
-    echo "Press enter K to stop the services or press I to read the current insult list"
+    echo "Press K to stop the services, press I to read the current insult list or press T to read the texts received"
 done
 exit 0
