@@ -1,19 +1,19 @@
 import redis
-import random
 import time
 import threading
+
 # Connect to Redis
 client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
 
 class Insults:
     def __init__(self):
-        self.results = []
         self.channel_insults = "Insults_channel"
         self.channel_broadcast = "Insults_broadcast"
         self.insultList = "INSULTS"
+        self.censoredTextsList = "RESULTS"
+        self.workQueue = "Work_queue"
 
     def add_insult(self, insult):
-        current_insults = client.smembers(self.insultList)
         client.sadd(self.insultList, insult)
         print(f"Insult added: {insult}")
         return f"Insult added: {insult}"
@@ -22,24 +22,23 @@ class Insults:
         insult = client.smembers(self.insultList)
         return f"Insult list: {insult}"
 
+    def get_results(self):
+        results = client.lrange(self.censoredTextsList, 0, -1)
+        return f"Textos censorats:{results}"
+
     def insult_me(self):
         if client.scard(self.insultList) != 0:
             insult = client.srandmember(self.insultList)
             print(f"Insult escollit: {insult}")
             return insult
-
-    def delete_all(self):
-        while client.scard(self.insultList) > 0:
-            client.spop(self.insultList)
-        print(self.get_insults())
-        print("List deleted")
+        return "Insult list is empty"
 
     def notify_subscribers(self):
         while True:
             insult = insults.insult_me()
             if insult:
                 client.publish(self.channel_broadcast, insult)
-                print("Notified subscribers.")
+                print(f"\nNotified subscribers.")
             time.sleep(5)
 
     def listen(self):
@@ -51,18 +50,39 @@ class Insults:
                     print(f"Received insult: {insult}")
                     self.add_insult(insult)
 
+    def filter(self, text):
+        censored_text = ""
+        if text is not None:
+            for word in text.split():
+                if word.lower() in client.smembers(self.insultList):
+                    censored_text += "CENSORED "
+                else:
+                    censored_text += word + " "
+        return censored_text
+
+    def filter_service(self):
+        while True:
+            text = client.blpop(self.workQueue)[1]
+            filtered_text = self.filter(text)
+            client.lpush(self.censoredTextsList, filtered_text)
+
 insults = Insults()
 pubsub = client.pubsub()
 pubsub.subscribe(insults.channel_insults)
 
-insults.delete_all()
+client.delete(insults.insultList)
+client.delete(insults.censoredTextsList)
+client.delete(insults.workQueue)
 
-#thread1 = threading.Thread(target=insults.notify_subscribers)
+thread1 = threading.Thread(target=insults.notify_subscribers)
 thread2 = threading.Thread(target=insults.listen)
+thread3 = threading.Thread(target=insults.filter_service)
 
-#thread1.start()
+thread1.start()
 thread2.start()
+thread3.start()
 
 while True:
     print(insults.get_insults())
+    print(insults.get_results())
     time.sleep(5)
