@@ -9,17 +9,17 @@ class Insults:
     def __init__(self):
         self.channel_insults = "Insults_channel"
         self.channel_broadcast = "Insults_broadcast"
-        self.insultList = "INSULTS"
+        self.insultSet = "INSULTS"
         self.censoredTextsList = "RESULTS"
         self.workQueue = "Work_queue"
 
     def add_insult(self, insult):
-        client.sadd(self.insultList, insult)
+        client.sadd(self.insultSet, insult)
         print(f"Insult added: {insult}")
         return f"Insult added: {insult}"
 
     def get_insults(self):
-        insult = client.smembers(self.insultList)
+        insult = client.smembers(self.insultSet)
         return f"Insult list: {insult}"
 
     def get_results(self):
@@ -27,8 +27,8 @@ class Insults:
         return f"Textos censorats:{results}"
 
     def insult_me(self):
-        if client.scard(self.insultList) != 0:
-            insult = client.srandmember(self.insultList)
+        if client.scard(self.insultSet) != 0:
+            insult = client.srandmember(self.insultSet)
             print(f"Insult escollit: {insult}")
             return insult
         return "Insult list is empty"
@@ -54,7 +54,7 @@ class Insults:
         censored_text = ""
         if text is not None:
             for word in text.split():
-                if word.lower() in client.smembers(self.insultList):
+                if word.lower() in client.smembers(self.insultSet):
                     censored_text += "CENSORED "
                 else:
                     censored_text += word + " "
@@ -70,7 +70,7 @@ insults = Insults()
 pubsub = client.pubsub()
 pubsub.subscribe(insults.channel_insults)
 
-client.delete(insults.insultList)
+client.delete(insults.insultSet)
 client.delete(insults.censoredTextsList)
 client.delete(insults.workQueue)
 
