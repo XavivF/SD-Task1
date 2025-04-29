@@ -83,6 +83,10 @@ thread2.start()
 thread3.start()
 
 while True:
-    print(insults.get_insults())
-    print(insults.get_results())
+    try:
+        print(insults.get_insults())
+        print(insults.get_results())
+    except KeyboardInterrupt:
+        print("Exiting...")
+        break
     time.sleep(5)
