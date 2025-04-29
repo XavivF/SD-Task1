@@ -4,29 +4,29 @@ import random
 from multiprocessing import Process, Manager
 
 class Insults:
-    def __init__(self, insults_set, sh_censored_texts):
+    def __init__(self, shared_insults, sh_censored_texts):
         self.channel_insults = "Insults_channel"
         self.channel_broadcast = "Insults_broadcast"
-        self.insults_set = insults_set  # Is a shared list
+        self.insults_list = shared_insults  # Is a shared list
         self.censored_texts = sh_censored_texts
         self.work_queue = "Work_queue"
 
     def add_insult(self, insult):
-        if insult not in self.insults_set:
-            self.insults_set.append(insult)
+        if insult not in self.insults_list:
+            self.insults_list.append(insult)
             print(f"Insult added: {insult}")
         else:
             print(f"This insult already exists: {insult}")
 
     def get_insults(self):
-        return f"Insult list: {list(self.insults_set)}"
+        return f"Insult list: {list(self.insults_list)}"
 
     def get_results(self):
         return f"Censored texts: {self.censored_texts}"
 
     def insult_me(self):
-        if self.insults_set:
-            insult = random.choice(self.insults_set)
+        if self.insults_list:
+            insult = random.choice(self.insults_list)
             print(f"Chosen insult: {insult}")
             return insult
         return None
@@ -37,7 +37,7 @@ class Insults:
         channel.queue_declare(queue=self.channel_broadcast)
 
         while True:
-            if self.insults_set:
+            if self.insults_list:
                 insult = self.insult_me()
                 if insult is not None:
                     print(f"Sending insult to subscribers: {insult}")
@@ -62,7 +62,7 @@ class Insults:
     def filter(self, text):
         censored_text = ""
         for word in text.split():
-            if word.lower() in self.insults_set:
+            if word.lower() in self.insults_list:
                 censored_text += "CENSORED "
             else:
                 censored_text += word + " "
@@ -86,9 +86,9 @@ class Insults:
 
 if __name__ == "__main__":
     with Manager() as manager:
-        shared_insults_set = manager.list()  # Crate a shared list
+        shared_insults_list = manager.list()  # Crate a shared list
         shared_censored_texts = manager.list()
-        insults = Insults(shared_insults_set, shared_censored_texts)
+        insults = Insults(shared_insults_list, shared_censored_texts)
 
         process1 = Process(target=insults.notify_subscribers)
         process2 = Process(target=insults.listen)
