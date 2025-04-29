@@ -1,28 +1,22 @@
 import pika
 import time
-import threading
+import random
+from multiprocessing import Process, Manager
 
 class Insults:
-    def __init__(self):
+    def __init__(self, insults_set, sh_censored_texts):
         self.channel_insults = "Insults_channel"
         self.channel_broadcast = "Insults_broadcast"
-        self.insults_set = set()  # Simulating a set
-        self.censored_texts = []  # Simulating a list
+        self.insults_set = insults_set  # Is a shared list
+        self.censored_texts = sh_censored_texts
         self.work_queue = "Work_queue"
-
-        # RabbitMQ configuration
-        self.connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
-        self.channel = self.connection.channel()
-        self.channel.queue_declare(queue=self.channel_insults)
-        self.channel.queue_declare(queue=self.channel_broadcast)
-        self.channel.queue_declare(queue=self.work_queue)
 
     def add_insult(self, insult):
         if insult not in self.insults_set:
-            self.insults_set.add(insult)
+            self.insults_set.append(insult)
             print(f"Insult added: {insult}")
         else:
-            print(f"Insult already exists: {insult}")
+            print(f"This insult already exists: {insult}")
 
     def get_insults(self):
         return f"Insult list: {list(self.insults_set)}"
@@ -32,28 +26,38 @@ class Insults:
 
     def insult_me(self):
         if self.insults_set:
-            insult = next(iter(self.insults_set))
-            print(f"Selected insult: {insult}")
+            insult = random.choice(self.insults_set)
+            print(f"Chosen insult: {insult}")
             return insult
-        return "The insult list is empty"
+        return None
 
     def notify_subscribers(self):
+        connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+        channel = connection.channel()
+        channel.queue_declare(queue=self.channel_broadcast)
+
         while True:
-            insult = self.insult_me()
-            if insult:
-                self.channel.basic_publish(exchange='', routing_key=self.channel_broadcast, body=insult)
-                print(f"\nNotified subscribers: {insult}")
+            if self.insults_set:
+                insult = self.insult_me()
+                if insult is not None:
+                    print(f"Sending insult to subscribers: {insult}")
+                    channel.basic_publish(exchange='', routing_key=self.channel_broadcast, body=insult)
+                    print(f"\nNotified subscribers : {insult}")
             time.sleep(5)
 
     def listen(self):
+        connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+        channel = connection.channel()
+        channel.queue_declare(queue=self.channel_insults)
+
         def callback(ch, method, properties, body):
             insult = body.decode('utf-8')
             print(f"Received insult: {insult}")
             self.add_insult(insult)
 
-        self.channel.basic_consume(queue=self.channel_insults, on_message_callback=callback, auto_ack=True)
-        print(f"Waiting for messages on {self.channel_insults}...")
-        self.channel.start_consuming()
+        channel.basic_consume(queue=self.channel_insults, on_message_callback=callback, auto_ack=True)
+        print(f"Waiting for messages at {self.channel_insults}...")
+        channel.start_consuming()
 
     def filter(self, text):
         censored_text = ""
@@ -65,31 +69,45 @@ class Insults:
         return censored_text
 
     def filter_service(self):
+        connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+        channel = connection.channel()
+        channel.queue_declare(queue=self.work_queue)
+
         def callback(ch, method, properties, body):
             text = body.decode('utf-8')
             filtered_text = self.filter(text)
-            self.censored_texts.append(filtered_text)
+            if filtered_text not in self.censored_texts:
+                self.censored_texts.append(filtered_text)
             print(f"Censored text: {filtered_text}")
 
-        self.channel.basic_consume(queue=self.work_queue, on_message_callback=callback, auto_ack=True)
-        print(f"Waiting for texts to censor on {self.work_queue}...")
-        self.channel.start_consuming()
+        channel.basic_consume(queue=self.work_queue, on_message_callback=callback, auto_ack=True)
+        print(f"Waiting for texts to censor at {self.work_queue}...")
+        channel.start_consuming()
 
-insults = Insults()
+if __name__ == "__main__":
+    with Manager() as manager:
+        shared_insults_set = manager.list()  # Crate a shared list
+        shared_censored_texts = manager.list()
+        insults = Insults(shared_insults_set, shared_censored_texts)
 
-thread1 = threading.Thread(target=insults.notify_subscribers)
-thread2 = threading.Thread(target=insults.listen)
-thread3 = threading.Thread(target=insults.filter_service)
+        process1 = Process(target=insults.notify_subscribers)
+        process2 = Process(target=insults.listen)
+        process3 = Process(target=insults.filter_service)
 
-thread1.start()
-thread2.start()
-thread3.start()
+        process1.start()
+        process2.start()
+        process3.start()
 
-while True:
-    try:
-        print(insults.get_insults())
-        print(insults.get_results())
-        time.sleep(5)
-    except KeyboardInterrupt:
-        print("Exiting...")
-        break
+        try:
+            while True:
+                print(insults.get_insults())
+                print(insults.get_results())
+                time.sleep(5)
+        except KeyboardInterrupt:
+            print("Exiting...")
+            process1.terminate()
+            process2.terminate()
+            process3.terminate()
+            process1.join()
+            process2.join()
+            process3.join()
