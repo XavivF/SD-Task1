@@ -4,14 +4,16 @@ class InsultSubscriber:
     def __init__(self):
         self.connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
         self.channel = self.connection.channel()
-        self.channel.queue_declare(queue='Insults_broadcast')
+        self.channel.exchange_declare(exchange='Insults_broadcast', exchange_type='fanout')
+        queue_name = self.channel.queue_declare(queue='', exclusive=True)
+        self.channel.queue_bind(exchange='Insults_broadcast', queue=queue_name)
 
     def listen(self):
         def callback(ch, method, properties, body):
             insult = body.decode('utf-8')
             print(f"Received insult: {insult}")
 
-        self.channel.basic_consume(queue='Insults_broadcast', on_message_callback=callback, auto_ack=True)
+        self.channel.basic_consume(queue=self.queue, on_message_callback=callback, auto_ack=True)
         print("Waiting for insults...")
         self.channel.start_consuming()
 
