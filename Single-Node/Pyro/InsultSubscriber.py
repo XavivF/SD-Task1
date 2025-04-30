@@ -1,16 +1,20 @@
 import Pyro4
 
+@Pyro4.expose
+class InsultSubscriber:
+    def receive_insult(self, insult):
+        print(f"Received broadcast insult: {insult}")
+
 def main():
     insult_service = Pyro4.Proxy("PYRONAME:example.insults")
+    subscriber = InsultSubscriber()
+    daemon = Pyro4.Daemon()
+    uri = daemon.register(subscriber)
 
-    print("Escoltant insults del servidor...")
-    try:
-        while True:
-            insult = insult_service.insult_me()
-            print(f"Insult rebut: {insult}")
-    except KeyboardInterrupt:
-        print("Interromput per l'usuari.")
+    insult_service.subscribe(uri)
+    print("Subscribed to insult broadcasts.")
 
+    daemon.requestLoop()
 
 if __name__ == "__main__":
     main()

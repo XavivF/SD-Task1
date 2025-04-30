@@ -1,6 +1,7 @@
 import Pyro4
 import random
 import time
+import threading
 
 class InsultClient:
     def __init__(self):
@@ -27,15 +28,32 @@ class InsultClient:
         print(f"Censored text: {censored_text}")
 
 
-    def send_insult(self):
-        insult = random.choice(self.insults)
-        self.insult_service.add_insult(insult)
-        print("Insult sent to server:", insult)
+    def send_insults(self):
+        for insult in self.insults:
+            self.insult_service.add_insult(insult)
+            print("Insult sent to server:", insult)
+
+    def broadcast(self):
+        while True:
+            try:
+                insult = self.insult_service.insult_me()
+                self.insult_service.notify_subscribers(insult)
+                print(f"Sent insult {insult} to subscribers.")
+
+            except Exception as e:
+                print(f"Error in broadcast: {e}")
+            time.sleep(5)
 
 def main():
     client = InsultClient()
 
-    client.send_insult()
+    client.send_insults()
+
+    # Thread to notify subscribers
+
+    broadcast_thread = threading.Thread(target=client.broadcast, daemon=True)
+    broadcast_thread.start()
+
     try:
         while True:
             client.send_text()
