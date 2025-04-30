@@ -27,7 +27,6 @@ class InsultClient:
         ]
 
     def send_text(self):
-        # Generate a text containing at least one insult
         text = random.choice(self.llista_insults)
         self.channel.basic_publish(exchange='', routing_key=self.queue_name, body=text)
         print(f"Sent to RabbitMQ: {text}")
