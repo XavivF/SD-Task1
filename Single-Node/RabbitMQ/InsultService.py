@@ -34,14 +34,14 @@ class Insults:
     def notify_subscribers(self):
         connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
         channel = connection.channel()
-        channel.queue_declare(queue=self.channel_broadcast)
+        channel.exchange_declare(exchange=self.channel_broadcast, exchange_type='fanout')
 
         while True:
             if self.insults_list:
                 insult = self.insult_me()
                 if insult is not None:
                     print(f"Sending insult to subscribers: {insult}")
-                    channel.basic_publish(exchange='', routing_key=self.channel_broadcast, body=insult)
+                    channel.basic_publish(exchange=self.channel_broadcast, routing_key='', body=insult)
                     print(f"\nNotified subscribers : {insult}")
             time.sleep(5)
 
