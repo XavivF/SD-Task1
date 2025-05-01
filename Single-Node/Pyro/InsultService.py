@@ -48,7 +48,8 @@ class InsultService:
         print(f"Censored texts: {self.censored_texts}")
         return self.censored_texts
 
-    def subscribe(self, client_proxy):
+    def subscribe(self, url):
+        client_proxy = Pyro4.Proxy(url)
         self.subscribers.append(client_proxy)
         print("New subscriber added.")
 
