@@ -1,6 +1,5 @@
 import random
 import threading
-import time
 import Pyro4
 
 @Pyro4.expose
@@ -10,13 +9,17 @@ class InsultService:
         self.insults_List = []
         self.censored_texts = []
         self.subscribers = []
+        self.processed_requests_count = 0
+        self._lock = threading.Lock() # Lock to securely access the counter
 
     def add_insult(self, insult):
+        with self._lock:
+            self.processed_requests_count += 1
         if insult not in self.insults_List:
             self.insults_List.append(insult)
-            print(f"Insult added: {insult}")
-        else:
-            print(f"Insult already exists: {insult}")
+            # print(f"Insult added: {insult}")
+        # else:
+            # print(f"Insult already exists: {insult}")
 
     def get_insults(self):
         print(f"Insult list: {self.insults_List}")
@@ -31,44 +34,58 @@ class InsultService:
 
     def filter_text(self, text):
         censored_text = ""
+        # we use a copy of the insults list to avoid any modifications it while iterating
+        current_insults = list(self.insults_List)
         for word in text.split():
-            if word.lower() in self.insults_List:
+            if word.lower() in current_insults:
                 censored_text += "CENSORED "
             else:
                 censored_text += word + " "
         return censored_text
 
     def filter_service(self, text):
+        with self._lock:
+            self.processed_requests_count += 1
         censored_text = self.filter_text(text)
         self.censored_texts.append(censored_text)
-        print(f"Censored text: {censored_text}")
-        return censored_text
+        # print(f"Censored text: {censored_text}") # Comentem
+        return censored_text.strip() # We add strip() to remove trailing spaces
 
     def get_censored_texts(self):
         print(f"Censored texts: {self.censored_texts}")
         return self.censored_texts
 
     def subscribe(self, url):
-        client_proxy = Pyro4.Proxy(url)
-        self.subscribers.append(client_proxy)
-        print("New subscriber added.")
+        try:
+            client_proxy = Pyro4.Proxy(url)
+            self.subscribers.append(client_proxy)
+            print("New subscriber added.")
+        except Exception as e:
+             print(f"Error afegint subscriptor {url}: {e}")
+
 
     def notify_subscribers(self, insult):
-            for subscriber in self.subscribers:
-                try:
-                    print(f"Notifying subscriber: {subscriber} with:" + insult)
-                    subscriber.receive_insult(insult)
-                except Pyro4.errors.CommunicationError:
-                    print("Failed to contact a subscriber.")
+        for subscriber in self.subscribers:
+            try:
+                print(f"Notifying subscriber: {subscriber} with:" + insult) # Comentem
+                subscriber.receive_insult(insult)
+            except Pyro4.errors.CommunicationError:
+                print("Failed to contact a subscriber.")
+
+    def get_processed_count(self):
+        with self._lock:
+            return self.processed_requests_count
+
 
 def main():
     print("Starting Pyro Insult Service...")
-    daemon = Pyro4.Daemon()  # Crear el daemon de Pyro
-    ns = Pyro4.locateNS()  # Localitzar el servidor de noms
-    uri = daemon.register(InsultService)  # Registrar el servei com a objecte Pyro
-    ns.register("example.insults", uri)  # Registrar el servei al servidor de noms
+    daemon = Pyro4.Daemon()  # Create the Pyro daemon
+    # We need to have the name server running: python3 -m Pyro4.naming
+    ns = Pyro4.locateNS()  # Locate the name server
+    uri = daemon.register(InsultService)  # Register the service as a Pyro object
+    ns.register("example.insults", uri)  # Register the service with a name
     print("Insult Service is ready.")
-    daemon.requestLoop()  # Iniciar el bucle d'espera
+    daemon.requestLoop()  # Start the event loop of the server to wait for calls
 
 
 if __name__ == "__main__":
