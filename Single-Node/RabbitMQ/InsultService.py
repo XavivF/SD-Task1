@@ -1,12 +1,12 @@
-from urllib.request import Request
-
 import pika
 import time
 import random
 from multiprocessing import Process, Manager, Value
 import Pyro4
 
+# Global counter for processed requests
 processed_requests_counter = Value('i', 0)
+
 @Pyro4.expose
 @Pyro4.behavior(instance_mode="single")
 class Insults:
@@ -25,7 +25,8 @@ class Insults:
             self.insults_list.append(insult)
             # print(f"Insult added: {insult}")
         else:
-            print(f"This insult already exists: {insult}")
+            # print(f"This insult already exists: {insult}")
+            pass
 
     def get_insults(self):
         return f"Insult list: {list(self.insults_list)}"
@@ -97,47 +98,53 @@ class Insults:
 
     @Pyro4.expose
     def get_processed_count(self):
+        # Access the shared counter safely
         with self.counter.get_lock():
             return self.counter.value
 
-    def requests_counter_pyro(self):
-        daemon = Pyro4.Daemon()  # Create the Pyro daemon
-        # We need to have the name server running: python3 -m Pyro4.naming
-        ns = Pyro4.locateNS()  # Locate the name server
-        uri = daemon.register(Insults)  # Register the service as a Pyro object
-        ns.register("rabbit.requests", uri)  # Register the service with a name
-        daemon.requestLoop()  # Start the event loop of the server to wait for calls
-
 if __name__ == "__main__":
     with Manager() as manager:
-        shared_insults_list = manager.list()  # Crate a shared list
-        shared_censored_texts = manager.list()
+        shared_insults_list = manager.list()  # Crate a shared list for Insults
+        shared_censored_texts = manager.list() #Create a shared list for Censored texts
+
+        # Create the service instance with the shared resources
         insults_service_instance = Insults(shared_insults_list, shared_censored_texts, processed_requests_counter)
 
         # --- Set up Pyro server ---
         print("Starting Pyro Insult Service for remote access...")
-        daemon = Pyro4.Daemon()  # Create the Pyro daemon
-        # You need to have the name server running: python3 -m Pyro4.naming
-        ns = Pyro4.locateNS()  # Locate the name server
+        try:
+            daemon = Pyro4.Daemon()  # Create the Pyro daemon
+            ns = Pyro4.locateNS()  # Locate the name server
+        except Pyro4.errors.NamingError as e:
+            # You need to have the name server running: python3 -m Pyro4.naming
+            print("Error locating the name server. Make sure it is running.")
+            print("Command: python3 -m Pyro4.naming")
+            exit(1)
 
         # Register the Insults service instance with the daemon and name server
-        # Clients will connect to this name
+        # Clients will connect to this name 'rabbit.counter'
         uri = daemon.register(insults_service_instance)
-        ns.register("rabbit.counter", uri)  # Register the service with a meaningful name
+        try:
+            ns.register("rabbit.counter", uri)
+            print("Service registered with the name server as 'rabbit.counter'")
+        except Pyro4.errors.NamingError as e:
+            print(f"Error registering the service with the name server: {e}")
+            exit(1)
 
         # --- Set up worker processes (RabbitMQ consumers/notifier) ---
         # Pass the service instance methods as targets for the processes
-        process1 = Process(target=insults_service_instance.notify_subscribers)
-        process2 = Process(target=insults_service_instance.listen)
-        process3 = Process(target=insults_service_instance.filter_service)
+        # These processes will run concurrently with the Pyro daemon
+        process_notify = Process(target=insults_service_instance.notify_subscribers)
+        process_listen_insult = Process(target=insults_service_instance.listen)
+        process_filter_service = Process(target=insults_service_instance.filter_service)
 
         # Start the worker processes
-        process1.start()
-        process2.start()
-        process3.start()
+        process_notify.start()
+        process_listen_insult.start()
+        process_filter_service.start()
 
         # --- Start the Pyro request loop ---
-        # This loop will block and wait for incoming Pyro calls (like get_processed_count)
+        # This loop will block and wait for incoming Pyro calls while
         # The worker processes run concurrently.
         print("Pyro daemon started, waiting for requests...")
         try:
@@ -147,13 +154,15 @@ if __name__ == "__main__":
         finally:
             # Cleanly terminate worker processes if the Pyro daemon is stopped
             print("Terminating worker processes...")
-            process1.terminate()
-            process2.terminate()
-            process3.terminate()
-            process1.join()
-            process2.join()
-            process3.join()
+            process_notify.terminate()
+            process_listen_insult.terminate()
+            process_filter_service.terminate()
+            process_notify.join()
+            process_listen_insult.join()
+            process_filter_service.join()
             print("Worker processes finished.")
+            # Shutdown Pyro daemon
+            print("Shutting down Pyro daemon...")
             daemon.shutdown()
             print("Pyro daemon shut down.")
             print("Exiting main program.")
