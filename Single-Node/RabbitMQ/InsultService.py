@@ -23,7 +23,7 @@ class Insults:
              self.counter.value += 1
         if insult not in self.insults_list:
             self.insults_list.append(insult)
-            print(f"Insult added: {insult}")
+            # print(f"Insult added: {insult}")
         else:
             print(f"This insult already exists: {insult}")
 
@@ -36,7 +36,7 @@ class Insults:
     def insult_me(self):
         if self.insults_list:
             insult = random.choice(self.insults_list)
-            print(f"Chosen insult: {insult}")
+            # print(f"Chosen insult: {insult}")
             return insult
         return None
 
@@ -49,9 +49,9 @@ class Insults:
             if self.insults_list:
                 insult = self.insult_me()
                 if insult is not None:
-                    print(f"Sending insult to subscribers: {insult}")
+                    # print(f"Sending insult to subscribers: {insult}")
                     channel.basic_publish(exchange=self.channel_broadcast, routing_key='', body=insult)
-                    print(f"\nNotified subscribers : {insult}")
+                    # print(f"\nNotified subscribers : {insult}")
             time.sleep(5)
 
     def listen(self):
@@ -61,11 +61,11 @@ class Insults:
 
         def callback(ch, method, properties, body):
             insult = body.decode('utf-8')
-            print(f"Received insult: {insult}")
+            # print(f"Received insult: {insult}")
             self.add_insult(insult)
 
         channel.basic_consume(queue=self.channel_insults, on_message_callback=callback, auto_ack=True)
-        print(f"Waiting for messages at {self.channel_insults}...")
+        # print(f"Waiting for messages at {self.channel_insults}...")
         channel.start_consuming()
 
     def filter(self, text):
@@ -95,16 +95,16 @@ class Insults:
         print(f"Waiting for texts to censor at {self.work_queue}...")
         channel.start_consuming()
 
-        @Pyro4.expose
-        def get_counter_requests(self):
-            with self.counter.get_lock():
-                return self.counter.value
+    @Pyro4.expose
+    def get_processed_count(self):
+        with self.counter.get_lock():
+            return self.counter.value
 
     def requests_counter_pyro(self):
         daemon = Pyro4.Daemon()  # Create the Pyro daemon
         # We need to have the name server running: python3 -m Pyro4.naming
         ns = Pyro4.locateNS()  # Locate the name server
-        uri = daemon.register(InsultService)  # Register the service as a Pyro object
+        uri = daemon.register(Insults)  # Register the service as a Pyro object
         ns.register("rabbit.requests", uri)  # Register the service with a name
         daemon.requestLoop()  # Start the event loop of the server to wait for calls
 
