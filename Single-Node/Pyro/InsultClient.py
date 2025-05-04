@@ -1,7 +1,8 @@
 import Pyro4
 import random
 import time
-import threading
+import multiprocessing
+
 
 class InsultClient:
     def __init__(self):
@@ -22,10 +23,17 @@ class InsultClient:
         ]
 
     def send_text(self):
-        text = random.choice(self.llista_insults)
-        censored_text = self.insult_service.filter_text(text)
-        print(f"Text sent: {text}")
-        print(f"Censored text: {censored_text}")
+        while True:
+            time.sleep(5)
+            try:
+                text = random.choice(self.llista_insults)
+                censored_text = self.insult_service.filter_text(text)
+                print(f"Text sent: {text}")
+                print(f"Censored text: {censored_text}")
+            except Pyro4.errors.CommunicationError:
+                pass
+            except Exception:
+                pass
 
 
     def send_insults(self):
@@ -35,31 +43,58 @@ class InsultClient:
 
     def broadcast(self):
         while True:
+            time.sleep(5)
             try:
                 insult = self.insult_service.insult_me()
                 self.insult_service.notify_subscribers(insult)
                 print(f"Sent insult {insult} to subscribers.")
-
-            except Exception as e:
-                print(f"Error in broadcast: {e}")
-            time.sleep(5)
+            except Pyro4.errors.CommunicationError:
+                pass
+            except Exception:
+                pass
 
 def main():
     client = InsultClient()
 
-    client.send_insults()
+    try:
+        client.send_insults()
+    except Pyro4.errors.CommunicationError as e:
+        print(f"Communication error: {e}.")
 
-    # Thread to notify subscribers
-
-    broadcast_thread = threading.Thread(target=client.broadcast, daemon=True)
-    broadcast_thread.start()
+    br_proc = multiprocessing.Process(target=client.broadcast)
+    st_proc = multiprocessing.Process(target=client.send_text)
+    br_proc.start()
+    st_proc.start()
 
     try:
+        print("Press K to stop the services, press I to read the current insult list or press T to read the texts received")
         while True:
-            client.send_text()
-            time.sleep(5)
+            t = input()
+            if t == "I":
+                try:
+                    print("Insult list:", client.insult_service.get_insults())
+                except Pyro4.errors.CommunicationError as e:
+                    print(f"Communication error: {e}.")
+            elif t == "T":
+                try:
+                    print("Censored texts:", client.insult_service.get_censored_texts())
+                except Pyro4.errors.CommunicationError as e:
+                    print(f"Communication error: {e}.")
+            elif t == "K":
+                print("Stopping services...")
+                br_proc.terminate()
+                st_proc.terminate()
+                br_proc.join()
+                st_proc.join()
+                break
+            else:
+                print("Unknown command.")
     except KeyboardInterrupt:
         print("Interrupted by user, stopping...")
+        br_proc.terminate()
+        st_proc.terminate()
+        br_proc.join()
+        st_proc.join()
 
 if __name__ == "__main__":
     main()
