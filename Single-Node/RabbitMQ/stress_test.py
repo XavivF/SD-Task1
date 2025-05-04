@@ -203,7 +203,7 @@ if __name__ == "__main__":
                         help=f"RabbitMQ queue name for adding insults (default: {DEFAULT_INSULT_QUEUE})")
     parser.add_argument("--work-queue", default=DEFAULT_WORK_QUEUE,
                         help=f"RabbitMQ queue name for filtering texts (default: {DEFAULT_WORK_QUEUE})")
-    parser.add_argument("--pyro-name", default=DEFAULT_PYRO_NAME,  # New argument
+    parser.add_argument("--pyro-name", default=DEFAULT_PYRO_NAME,
                         help=f"Pyro object name for getting statistics (default: {DEFAULT_PYRO_NAME})")
     parser.add_argument("-d", "--duration", type=int, default=DEFAULT_DURATION,
                         help=f"Test duration in seconds (default: {DEFAULT_DURATION})")

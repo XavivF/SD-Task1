@@ -1,19 +1,28 @@
 import redis
 import time
-import threading
+import Pyro4
+from multiprocessing import Process, Value
 
 # Connect to Redis
 client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
 
+# Global counter for processed requests
+processed_requests_counter = Value('i', 0)
+
+@Pyro4.expose
+@Pyro4.behavior(instance_mode="single")
 class Insults:
-    def __init__(self):
+    def __init__(self, req_counter):
         self.channel_insults = "Insults_channel"
         self.channel_broadcast = "Insults_broadcast"
         self.insultSet = "INSULTS"
         self.censoredTextsList = "RESULTS"
         self.workQueue = "Work_queue"
+        self.counter = req_counter  # Counter for the number of insults added
 
     def add_insult(self, insult):
+        with self.counter.get_lock():
+             self.counter.value += 1
         client.sadd(self.insultSet, insult)
         print(f"Insult added: {insult}")
         return f"Insult added: {insult}"
@@ -63,10 +72,46 @@ class Insults:
     def filter_service(self):
         while True:
             text = client.blpop(self.workQueue)[1]
+            with self.counter.get_lock():
+                self.counter.value += 1
             filtered_text = self.filter(text)
             client.lpush(self.censoredTextsList, filtered_text)
 
-insults = Insults()
+    @Pyro4.expose
+    def get_processed_count(self):
+        # Access the shared counter safely
+        with self.counter.get_lock():
+            return self.counter.value
+
+    def get_insults_daemon(self):
+        while True:
+            print(insults.get_insults())
+            print(insults.get_results())
+            time.sleep(5)
+
+insults = Insults(processed_requests_counter)
+
+# --- Set up Pyro server ---
+print("Starting Pyro Insult Service for remote access...")
+try:
+    daemon = Pyro4.Daemon()  # Create the Pyro daemon
+    ns = Pyro4.locateNS()  # Locate the name server
+except Pyro4.errors.NamingError as e:
+    # You need to have the name server running: python3 -m Pyro4.naming
+    print("Error locating the name server. Make sure it is running.")
+    print("Command: python3 -m Pyro4.naming")
+    exit(1)
+
+# Register the Insults service instance with the daemon and name server
+# Clients will connect to this name 'rabbit.counter'
+uri = daemon.register(insults)
+try:
+    ns.register("redis.counter", uri)
+    print("Service registered with the name server as 'redis.counter'")
+except Pyro4.errors.NamingError as e:
+    print(f"Error registering the service with the name server: {e}")
+    exit(1)
+
 pubsub = client.pubsub()
 pubsub.subscribe(insults.channel_insults)
 
@@ -74,19 +119,33 @@ client.delete(insults.insultSet)
 client.delete(insults.censoredTextsList)
 client.delete(insults.workQueue)
 
-thread1 = threading.Thread(target=insults.notify_subscribers)
-thread2 = threading.Thread(target=insults.listen)
-thread3 = threading.Thread(target=insults.filter_service)
+process1 = Process(target=insults.notify_subscribers)
+process2 = Process(target=insults.listen)
+process3 = Process(target=insults.filter_service)
+process4 = Process(target=insults.get_insults_daemon)
 
-thread1.start()
-thread2.start()
-thread3.start()
+process1.start()
+process2.start()
+process3.start()
+process4.start()
 
+print("Pyro daemon started, waiting for remote requests...")
 while True:
     try:
-        print(insults.get_insults())
-        print(insults.get_results())
+        daemon.requestLoop()
     except KeyboardInterrupt:
         print("Exiting...")
+        process1.terminate()
+        process2.terminate()
+        process3.terminate()
+        process4.terminate()
+        process1.join()
+        process2.join()
+        process3.join()
+        process4.join()
+        print("Worker processes finished.")
+        print("Shutting down Pyro daemon...")
+        daemon.shutdown()
+        print("Pyro daemon shut down.")
+        print("Exiting main program.")
         break
-    time.sleep(5)
