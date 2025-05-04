@@ -79,9 +79,14 @@ class InsultService:
 
 def main():
     print("Starting Pyro Insult Service...")
-    daemon = Pyro4.Daemon()  # Create the Pyro daemon
-    # We need to have the name server running: python3 -m Pyro4.naming
-    ns = Pyro4.locateNS()  # Locate the name server
+    try:
+        daemon = Pyro4.Daemon()  # Create the Pyro daemon
+        ns = Pyro4.locateNS()  # Locate the name server
+    except Pyro4.errors.NamingError:
+        # You need to have the name server running: python3 -m Pyro4.naming
+        print("Error locating the name server. Make sure it is running.")
+        print("Command: python3 -m Pyro4.naming")
+        exit(1)
     uri = daemon.register(InsultService)  # Register the service as a Pyro object
     ns.register("example.insults", uri)  # Register the service with a name
     print("Insult Service is ready.")
