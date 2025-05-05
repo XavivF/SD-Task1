@@ -5,10 +5,9 @@ class InsultSubscriber:
         self.connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
         self.channel = self.connection.channel()
         self.channel.exchange_declare(exchange='Insults_broadcast', exchange_type='fanout')
-        result = self.channel.queue_declare(queue='', exclusive=True)
-        queue_name = result.method.queue
-        self.queue_name = queue_name
-        self.channel.queue_bind(exchange='Insults_broadcast', queue=queue_name)
+        unique_queue = self.channel.queue_declare(queue='', exclusive=True)
+        self.queue_name = unique_queue.method.queue
+        self.channel.queue_bind(exchange='Insults_broadcast', queue=self.queue_name)
 
     def listen(self):
         def callback(ch, method, properties, body):
