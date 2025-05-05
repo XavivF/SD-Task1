@@ -28,7 +28,7 @@ class InsultService:
     def insult_me(self):
         if client.scard(self.insultSet) != 0:
             insult = client.srandmember(self.insultSet)
-            print(f"InsultService: chosen: {insult}")
+            print(f"InsultService Broadcast: chosen: {insult}")
             return insult
         return "Insult list is empty"
 

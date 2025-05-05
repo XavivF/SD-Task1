@@ -15,7 +15,6 @@ def send_insults():
         client.publish(channel_insults, insult)
         print(f"Produced: {insult}")
 
-
 def send_text():
     insult = random.choice(insults)
     text = f"This is a text with an insult: {insult}"
@@ -24,5 +23,9 @@ def send_text():
 
 send_insults()
 while True:
-    send_text()
-    time.sleep(5)
+    try:
+        send_text()
+        time.sleep(5)
+    except KeyboardInterrupt:
+        print("\nStopping producer...")
+        break
