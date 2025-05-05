@@ -6,10 +6,10 @@ class InsultClient:
     def __init__(self):
         self.connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
         self.channel = self.connection.channel()
-        self.queue_name = "Work_queue"
-        self.channel_insults = "Insults_channel"
-        self.channel.queue_declare(queue=self.queue_name)
-        self.channel.queue_declare(queue=self.channel_insults)
+        self.work_queue = "Work_queue"
+        self.insults_queue = "Insults_channel"
+        self.channel.queue_declare(queue=self.work_queue)
+        self.channel.queue_declare(queue=self.insults_queue)
 
         self.insults = ["beneit", "capsigrany", "ganàpia", "nyicris",
                         "gamarús", "bocamoll", "murri", "dropo", "bleda", "xitxarel·lo"]
@@ -28,12 +28,12 @@ class InsultClient:
 
     def send_text(self):
         text = random.choice(self.llista_insults)
-        self.channel.basic_publish(exchange='', routing_key=self.queue_name, body=text)
+        self.channel.basic_publish(exchange='', routing_key=self.work_queue, body=text)
         print(f"Sent to RabbitMQ: {text}")
 
     def send_insults(self):
         for insult in self.insults:
-            self.channel.basic_publish(exchange='', routing_key=self.channel_insults, body=insult)
+            self.channel.basic_publish(exchange='', routing_key=self.insults_queue, body=insult)
             print(f"New insult sent to service: {insult}")
 
     def start_sending(self, interval=5):
