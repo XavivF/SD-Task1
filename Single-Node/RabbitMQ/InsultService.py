@@ -10,11 +10,10 @@ processed_requests_counter = Value('i', 0)
 @Pyro4.expose
 @Pyro4.behavior(instance_mode="single")
 class Insults:
-    def __init__(self, req_counter):
+    def __init__(self, req_counter, shared_insults_list):
         self.insults_exchange = "insults_exchange"
         self.channel_broadcast = "Insults_broadcast"
-        self.insults_list = []  # Is a shared list
-        self.work_queue = "Work_queue"
+        self.insults_list = shared_insults_list  # Is a shared list
         self.counter = req_counter  # Counter for the number of insults added
 
     def add_insult(self, insult):
@@ -43,9 +42,8 @@ class Insults:
             if self.insults_list:
                 insult = self.insult_me()
                 if insult is not None:
-                    # print(f"Sending insult to subscribers: {insult}")
+                    print(f"Sending insult to subscribers: {insult}")
                     channel.basic_publish(exchange=self.channel_broadcast, routing_key='', body=insult)
-                    # print(f"\nNotified subscribers : {insult}")
             time.sleep(5)
 
     def listen_insults(self):
@@ -72,16 +70,18 @@ class Insults:
         # print(f"Waiting for messages at {self.channel_insults}...")
         channel.start_consuming()
 
-
-    @Pyro4.expose
     def get_processed_count(self):
         # Access the shared counter safely
         with self.counter.get_lock():
             return self.counter.value
 
 if __name__ == "__main__":
+
+    manager = Manager()
+    # Create a shared list for insults
+    shared_insults = manager.list()
     # Create the service instance with the shared resources
-    insults_service_instance = Insults(processed_requests_counter)
+    insults_service_instance = Insults(processed_requests_counter, shared_insults)
 
     # --- Set up Pyro server ---
     print("Starting Pyro Insult Service for remote access...")
@@ -98,8 +98,8 @@ if __name__ == "__main__":
     # Clients will connect to this name 'rabbit.counter'
     uri = daemon.register(insults_service_instance)
     try:
-        ns.register("rabbit.counter_service", uri)
-        print("Service registered with the name server as 'rabbit.counter_service'")
+        ns.register("rabbit.service", uri)
+        print("Service registered with the name server as 'rabbit.service'")
     except Pyro4.errors.NamingError as e:
         print(f"Error registering the service with the name server: {e}")
         exit(1)

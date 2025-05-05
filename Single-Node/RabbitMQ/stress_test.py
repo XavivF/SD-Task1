@@ -11,9 +11,10 @@ import Pyro4
 
 # --- Configuration  ---
 DEFAULT_RABBIT_HOST = 'localhost'
-DEFAULT_INSULT_QUEUE = 'Insults_channel'    # Default RabbitMQ queue for adding insults
-DEFAULT_WORK_QUEUE = 'Work_queue'           # Default RabbitMQ queue for filtering work
-DEFAULT_PYRO_NAME = 'rabbit.counter'        # Default Pyro name for statistics
+DEFAULT_INSULT_EXCHANGE = 'insults_exchange'    # Default RabbitMQ queue for adding insults
+DEFAULT_TEXT_QUEUE = 'text_queue'           # Default RabbitMQ queue for filtering work
+DEFAULT_PYRO_NAME_SERVICE = 'rabbit.service'        # Default Pyro name for statistics
+DEFAULT_PYRO_NAME_FILTER = 'rabbit.filter'          # Default Pyro name for filter service
 DEFAULT_DURATION = 10                       # Default test duration in seconds
 DEFAULT_CONCURRENCY = 10                    # Default number of concurrent processes/clients
 
@@ -31,7 +32,7 @@ TEXTS_TO_FILTER = [
 
 
 # --- Worker Functions (Send load to RabbitMQ) --
-def worker_add_insult(host, queue_name, results_queue, end_time):
+def worker_add_insult(host, exchange_name, results_queue, end_time):
     local_request_count = 0
     local_error_count = 0
     connection = None
@@ -40,11 +41,11 @@ def worker_add_insult(host, queue_name, results_queue, end_time):
         connection_params = pika.ConnectionParameters(host)
         connection = pika.BlockingConnection(connection_params)
         channel = connection.channel()
-        channel.queue_declare(queue=queue_name)
+        channel.exchange_declare(exchange=exchange_name, exchange_type='fanout')
         while time.time() < end_time:
             try:
                 insult = random.choice(INSULTS_TO_ADD) + str(random.randint(1, 10000))
-                channel.basic_publish(exchange='', routing_key=queue_name, body=insult.encode('utf-8'))
+                channel.basic_publish(exchange=exchange_name, routing_key='', body=insult.encode('utf-8'))
                 local_request_count += 1
             except pika.exceptions.AMQPConnectionError as e:
                  print(f"[Process {pid}] Connection error sending insult: {e}", file=sys.stderr)
@@ -95,12 +96,14 @@ def worker_filter_text(host, queue_name, results_queue, end_time):
 
 # --- Main Test Function ---
 def run_stress_test(mode, host, insult_queue, work_queue, pyro_name, duration, concurrency):
-    """Runs the stress test (RabbitMQ load generation) and gets statistics via Pyro."""
+    if (mode == "filter_text") and (pyro_name == "rabbit.service"):
+        print(f"Error: The mode '{mode}' is not compatible with the Pyro name '{pyro_name}'.", file=sys.stderr)
+        exit (1)
     print(f"Starting stress test (RabbitMQ+Pyro with Multiprocessing) in mode '{mode}'...")
     print(f"RabbitMQ Host: {host}")
     print(f"Insults Queue: {insult_queue}")
     print(f"Filter Queue: {work_queue}")
-    print(f"Pyro Name (Statistics): {pyro_name}") # New
+    print(f"Pyro Name (Statistics): {pyro_name}")
     print(f"Duration: {duration} seconds")
     print(f"Concurrency: {concurrency} processes")
     print("-" * 30)
@@ -191,20 +194,17 @@ def run_stress_test(mode, host, insult_queue, work_queue, pyro_name, duration, c
 
 # --- Argument Parsing and Execution ---
 if __name__ == "__main__":
-    # TODO is necessary?
-    multiprocessing.freeze_support()
-
     parser = argparse.ArgumentParser(description="Stress Test Script (RabbitMQ+Pyro) for InsultService")
     parser.add_argument("mode", choices=['add_insult', 'filter_service'],
                         help="The functionality to test ('add_insult' or 'filter_service')")
     parser.add_argument("--host", default=DEFAULT_RABBIT_HOST,
                         help=f"RabbitMQ server host (default: {DEFAULT_RABBIT_HOST})")
-    parser.add_argument("--insult-queue", default=DEFAULT_INSULT_QUEUE,
-                        help=f"RabbitMQ queue name for adding insults (default: {DEFAULT_INSULT_QUEUE})")
-    parser.add_argument("--work-queue", default=DEFAULT_WORK_QUEUE,
-                        help=f"RabbitMQ queue name for filtering texts (default: {DEFAULT_WORK_QUEUE})")
-    parser.add_argument("--pyro-name", default=DEFAULT_PYRO_NAME,
-                        help=f"Pyro object name for getting statistics (default: {DEFAULT_PYRO_NAME})")
+    parser.add_argument("--insult-queue", default=DEFAULT_INSULT_EXCHANGE,
+                        help=f"RabbitMQ queue name for adding insults (default: {DEFAULT_INSULT_EXCHANGE})")
+    parser.add_argument("--work-queue", default=DEFAULT_TEXT_QUEUE,
+                        help=f"RabbitMQ queue name for filtering texts (default: {DEFAULT_TEXT_QUEUE})")
+    parser.add_argument("--pyro-name", default=DEFAULT_PYRO_NAME_SERVICE,
+                        help=f"Name of the Pyro object in the name server, - {DEFAULT_PYRO_NAME_SERVICE} - or - {DEFAULT_PYRO_NAME_FILTER} - (default: {DEFAULT_PYRO_NAME_SERVICE})")
     parser.add_argument("-d", "--duration", type=int, default=DEFAULT_DURATION,
                         help=f"Test duration in seconds (default: {DEFAULT_DURATION})")
     parser.add_argument("-c", "--concurrency", type=int, default=DEFAULT_CONCURRENCY,

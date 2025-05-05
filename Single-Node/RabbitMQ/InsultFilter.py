@@ -2,12 +2,15 @@ import Pyro4
 import pika
 from multiprocessing import Manager, Value, Process
 
+processed_requests_counter = Value('i', 0)
 
-class InsultService:
-    def __init__(self, req_counter):
+@Pyro4.expose
+@Pyro4.behavior(instance_mode="single")
+class InsultFilter:
+    def __init__(self, req_counter, shared_insult_list, shared_censored_texts):
         self.channel_insults = "Insults_channel"
-        self.insults_list = []  # list of insults
-        self.censored_texts = [] # list for censored texts
+        self.insults_list = shared_insult_list  # list of insults
+        self.censored_texts = shared_censored_texts # list for censored texts
         self.text_queue = "text_queue"
         self.insults_exchange = "insults_exchange"
         self.counter = req_counter  # Shared counter for processed requests
@@ -21,8 +24,9 @@ class InsultService:
 
     def filter(self, text):
         censored_text = ""
+        current_insults = list(self.insults_list)
         for word in text.split():
-            if word.lower() in self.insults_list:
+            if word.lower() in current_insults:
                 censored_text += "CENSORED "
             else:
                 censored_text += word + " "
@@ -79,10 +83,13 @@ class InsultService:
 
 # Example of how to run the InsultFilterService
 if __name__ == "__main__":
-    processed_requests_counter = Value('i', 0)
-
+    manager = Manager()
+    # Create a shared list for insults
+    shared_insults = manager.list()
+    # Create a shared list for censored texts
+    shared_texts = manager.list()
     # Create the service instance with the shared resources
-    filter_service_instance = InsultService(processed_requests_counter)
+    filter_service_instance = InsultFilter(processed_requests_counter, shared_insults, shared_texts)
 
     # --- Set up Pyro server ---
     print("Starting Pyro Insult Service for remote access...")
@@ -99,14 +106,11 @@ if __name__ == "__main__":
     # Clients will connect to this name 'rabbit.counter'
     uri = daemon.register(filter_service_instance)
     try:
-        ns.register("rabbit.counter_filter", uri)
-        print("Service registered with the name server as 'rabbit.counter_filter'")
+        ns.register("rabbit.filter", uri)
+        print("Service registered with the name server as 'rabbit.filter'")
     except Pyro4.errors.NamingError as e:
         print(f"Error registering the service with the name server: {e}")
         exit(1)
-
-    print("Starting Insult Filter Service...")
-    filter_service_instance.filter_service()
 
     process_filter_service = Process(target=filter_service_instance.filter_service)
     process_listen_insults = Process(target=filter_service_instance.listen_insults)

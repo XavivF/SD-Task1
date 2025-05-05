@@ -145,8 +145,6 @@ def run_stress_test(mode, pyro_name, duration, concurrency):
 
 # --- Arguments Management ---
 if __name__ == "__main__":
-    multiprocessing.freeze_support()
-
     parser = argparse.ArgumentParser(description="Stress Test Script for Pyro Insult Service")
     parser.add_argument("mode", choices=['add_insult', 'filter_text'],
                         help="The function to test ('add_insult' o 'filter_text')")
