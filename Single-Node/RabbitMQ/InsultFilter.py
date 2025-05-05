@@ -1,52 +1,50 @@
-import pika
-import time
-import random
-from multiprocessing import Process, Manager, Value
 import Pyro4
+import pika
+from multiprocessing import Manager, Value, Process
 
-# Global counter for processed requests
-processed_requests_counter = Value('i', 0)
 
-@Pyro4.expose
-@Pyro4.behavior(instance_mode="single")
-class Insults:
+class InsultService:
     def __init__(self, req_counter):
+        self.channel_insults = "Insults_channel"
+        self.insults_list = []  # list of insults
+        self.censored_texts = [] # list for censored texts
+        self.text_queue = "text_queue"
         self.insults_exchange = "insults_exchange"
-        self.channel_broadcast = "Insults_broadcast"
-        self.insults_list = []  # Is a shared list
-        self.work_queue = "Work_queue"
-        self.counter = req_counter  # Counter for the number of insults added
+        self.counter = req_counter  # Shared counter for processed requests
 
     def add_insult(self, insult):
         with self.counter.get_lock():
              self.counter.value += 1
         if insult not in self.insults_list:
             self.insults_list.append(insult)
-        print(f"Insult added: {insult}")
+            print(f"Insult added: {insult}")
 
-    def get_insults(self):
-        return f"Insult list: {list(self.insults_list)}"
+    def filter(self, text):
+        censored_text = ""
+        for word in text.split():
+            if word.lower() in self.insults_list:
+                censored_text += "CENSORED "
+            else:
+                censored_text += word + " "
+        return censored_text.strip()
 
-    def insult_me(self):
-        if self.insults_list:
-            insult = random.choice(self.insults_list)
-            # print(f"Chosen insult: {insult}")
-            return insult
-        return None
-
-    def notify_subscribers(self):
+    def filter_service(self):
         connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
         channel = connection.channel()
-        channel.exchange_declare(exchange=self.channel_broadcast, exchange_type='fanout')
+        channel.queue_declare(queue=self.text_queue)
 
-        while True:
-            if self.insults_list:
-                insult = self.insult_me()
-                if insult is not None:
-                    # print(f"Sending insult to subscribers: {insult}")
-                    channel.basic_publish(exchange=self.channel_broadcast, routing_key='', body=insult)
-                    # print(f"\nNotified subscribers : {insult}")
-            time.sleep(5)
+        def callback(ch, method, properties, body):
+            text = body.decode('utf-8')
+            filtered_text = self.filter(text)
+            with self.counter.get_lock():
+                self.counter.value += 1
+            if filtered_text not in self.censored_texts:
+                self.censored_texts.append(filtered_text)
+            print(f"Censored text: {filtered_text}")
+
+        channel.basic_consume(queue=self.text_queue, on_message_callback=callback, auto_ack=True)
+        print(f"Waiting for texts to censor at {self.text_queue}...")
+        channel.start_consuming()
 
     def listen_insults(self):
         connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
@@ -72,16 +70,19 @@ class Insults:
         # print(f"Waiting for messages at {self.channel_insults}...")
         channel.start_consuming()
 
+    def get_results(self):
+        return f"Censored texts: {list(self.censored_texts)}"
 
-    @Pyro4.expose
     def get_processed_count(self):
-        # Access the shared counter safely
         with self.counter.get_lock():
             return self.counter.value
 
+# Example of how to run the InsultFilterService
 if __name__ == "__main__":
+    processed_requests_counter = Value('i', 0)
+
     # Create the service instance with the shared resources
-    insults_service_instance = Insults(processed_requests_counter)
+    filter_service_instance = InsultService(processed_requests_counter)
 
     # --- Set up Pyro server ---
     print("Starting Pyro Insult Service for remote access...")
@@ -96,24 +97,23 @@ if __name__ == "__main__":
 
     # Register the Insults service instance with the daemon and name server
     # Clients will connect to this name 'rabbit.counter'
-    uri = daemon.register(insults_service_instance)
+    uri = daemon.register(filter_service_instance)
     try:
-        ns.register("rabbit.counter_service", uri)
-        print("Service registered with the name server as 'rabbit.counter_service'")
+        ns.register("rabbit.counter_filter", uri)
+        print("Service registered with the name server as 'rabbit.counter_filter'")
     except Pyro4.errors.NamingError as e:
         print(f"Error registering the service with the name server: {e}")
         exit(1)
 
-    # --- Set up worker processes (RabbitMQ consumers/notifier) ---
-    # Pass the service instance methods as targets for the processes
-    # These processes will run concurrently with the Pyro daemon
-    process_notify = Process(target=insults_service_instance.notify_subscribers)
-    process_listen_insults = Process(target=insults_service_instance.listen_insults)
+    print("Starting Insult Filter Service...")
+    filter_service_instance.filter_service()
+
+    process_filter_service = Process(target=filter_service_instance.filter_service)
+    process_listen_insults = Process(target=filter_service_instance.listen_insults)
 
     # Start the worker processes
-    process_notify.start()
+    process_filter_service.start()
     process_listen_insults.start()
-
     # --- Start the Pyro request loop ---
     # This loop will block and wait for incoming Pyro calls while
     # The worker processes run concurrently.
@@ -125,9 +125,9 @@ if __name__ == "__main__":
     finally:
         # Cleanly terminate worker processes if the Pyro daemon is stopped
         print("Terminating worker processes...")
-        process_notify.terminate()
+        process_filter_service.terminate()
         process_listen_insults.terminate()
-        process_notify.join()
+        process_filter_service.join()
         process_listen_insults.join()
         print("Worker processes finished.")
         # Shutdown Pyro daemon
@@ -135,3 +135,4 @@ if __name__ == "__main__":
         daemon.shutdown()
         print("Pyro daemon shut down.")
         print("Exiting main program.")
+

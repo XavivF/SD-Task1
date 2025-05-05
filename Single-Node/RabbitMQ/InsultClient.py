@@ -6,10 +6,10 @@ class InsultClient:
     def __init__(self):
         self.connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
         self.channel = self.connection.channel()
-        self.work_queue = "Work_queue"
-        self.insults_queue = "Insults_channel"
-        self.channel.queue_declare(queue=self.work_queue)
-        self.channel.queue_declare(queue=self.insults_queue)
+        self.text_queue = "text_queue"
+        self.insults_exchange = "insults_exchange"
+        self.channel.exchange_declare(exchange=self.insults_exchange, exchange_type='fanout')
+        self.channel.queue_declare(queue=self.text_queue)
 
         self.insults = ["beneit", "capsigrany", "ganàpia", "nyicris",
                         "gamarús", "bocamoll", "murri", "dropo", "bleda", "xitxarel·lo"]
@@ -28,19 +28,19 @@ class InsultClient:
 
     def send_text(self):
         text = random.choice(self.llista_insults)
-        self.channel.basic_publish(exchange='', routing_key=self.work_queue, body=text)
+        self.channel.basic_publish(exchange='', routing_key=self.text_queue, body=text)
         print(f"Sent to RabbitMQ: {text}")
 
     def send_insults(self):
         for insult in self.insults:
-            self.channel.basic_publish(exchange='', routing_key=self.insults_queue, body=insult)
-            print(f"New insult sent to service: {insult}")
+            self.channel.basic_publish(exchange=self.insults_exchange, routing_key='', body=insult)
+            print(f"New insult sent to both services: {insult}")
 
-    def start_sending(self, interval=5):
+    def start_sending(self):
         try:
             while True:
                 self.send_text()
-                time.sleep(interval)
+                time.sleep(5)
         except KeyboardInterrupt:
             print("Interrupted by user, stopping...")
             self.connection.close()
