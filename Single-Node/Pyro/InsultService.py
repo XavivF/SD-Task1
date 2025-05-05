@@ -7,7 +7,6 @@ import Pyro4
 class InsultService:
     def __init__(self):
         self.insults_List = []
-        self.censored_texts = []
         self.subscribers = []
         self.processed_requests_count = 0
         self._lock = threading.Lock() # Lock to securely access the counter
@@ -32,29 +31,6 @@ class InsultService:
         print(f"Selected insult: {insult}")
         return insult
 
-    def filter_text(self, text):
-        censored_text = ""
-        # we use a copy of the insults list to avoid any modifications it while iterating
-        current_insults = list(self.insults_List)
-        for word in text.split():
-            if word.lower() in current_insults:
-                censored_text += "CENSORED "
-            else:
-                censored_text += word + " "
-        return censored_text
-
-    def filter_service(self, text):
-        with self._lock:
-            self.processed_requests_count += 1
-        censored_text = self.filter_text(text)
-        self.censored_texts.append(censored_text)
-        # print(f"Censored text: {censored_text}") # Comentem
-        return censored_text.strip() # We add strip() to remove trailing spaces
-
-    def get_censored_texts(self):
-        print(f"Censored texts: {self.censored_texts}")
-        return self.censored_texts
-
     def subscribe(self, url):
         try:
             client_proxy = Pyro4.Proxy(url)
@@ -62,7 +38,6 @@ class InsultService:
             print("New subscriber added.")
         except Exception as e:
              print(f"Error afegint subscriptor {url}: {e}")
-
 
     def notify_subscribers(self, insult):
         for subscriber in self.subscribers:
@@ -88,7 +63,7 @@ def main():
         print("Command: python3 -m Pyro4.naming")
         exit(1)
     uri = daemon.register(InsultService)  # Register the service as a Pyro object
-    ns.register("example.insults", uri)  # Register the service with a name
+    ns.register("pyro.service", uri)  # Register the service with a name
     print("Insult Service is ready.")
     daemon.requestLoop()  # Start the event loop of the server to wait for calls
 

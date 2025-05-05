@@ -6,7 +6,8 @@ import random
 import argparse
 import sys
 
-DEFAULT_PYRO_NAME = "example.insults"
+DEFAULT_PYRO_SERVICE = "pyro.service"
+DEFAULT_PYRO_FILTER = "pyro.filter"
 DEFAULT_DURATION = 10  # Seconds
 DEFAULT_CONCURRENCY = 10 # Number of concurrent processes
 
@@ -72,6 +73,9 @@ def worker_filter_text(pyro_name, results_queue, end_time):
 
 # --- Main function ---
 def run_stress_test(mode, pyro_name, duration, concurrency):
+    if (mode == "filter_text") and (pyro_name == "pyro.service"):
+        print(f"Error: The mode '{mode}' is not compatible with the Pyro name '{pyro_name}'.", file=sys.stderr)
+        exit (1)
     print(f"Starting Pyro stress test with mode '{mode}'...")
     print(f"Pyro name: {pyro_name}")
     print(f"Duration: {duration} seconds")
@@ -146,8 +150,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Stress Test Script for Pyro Insult Service")
     parser.add_argument("mode", choices=['add_insult', 'filter_text'],
                         help="The function to test ('add_insult' o 'filter_text')")
-    parser.add_argument("-n", "--name", default=DEFAULT_PYRO_NAME,
-                        help=f"Name of the Pyro object in the name server (default: {DEFAULT_PYRO_NAME})")
+    parser.add_argument("-n", "--name", default=DEFAULT_PYRO_SERVICE,
+                        help=f"Name of the Pyro object in the name server, - {DEFAULT_PYRO_SERVICE} - or - {DEFAULT_PYRO_FILTER} - (default: {DEFAULT_PYRO_SERVICE})")
     parser.add_argument("-d", "--duration", type=int, default=DEFAULT_DURATION,
                         help=f"Duration in seconds (default: {DEFAULT_DURATION})")
     parser.add_argument("-c", "--concurrency", type=int, default=DEFAULT_CONCURRENCY,

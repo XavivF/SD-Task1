@@ -6,7 +6,8 @@ import multiprocessing
 
 class InsultClient:
     def __init__(self):
-        self.insult_service = Pyro4.Proxy("PYRONAME:example.insults")
+        self.insult_service = Pyro4.Proxy("PYRONAME:pyro.service")
+        self.insult_filter = Pyro4.Proxy("PYRONAME:pyro.filter")
         self.insults = ["beneit", "capsigrany", "ganàpia", "nyicris",
                     "gamarús", "bocamoll", "murri", "dropo", "bleda", "xitxarel·lo"]
         self.llista_insults = [
@@ -27,7 +28,7 @@ class InsultClient:
             time.sleep(5)
             try:
                 text = random.choice(self.llista_insults)
-                censored_text = self.insult_service.filter_text(text)
+                censored_text = self.insult_filter.filter_service(text)
                 print(f"Text sent: {text}")
                 print(f"Censored text: {censored_text}")
             except Pyro4.errors.CommunicationError:
@@ -35,10 +36,10 @@ class InsultClient:
             except Exception:
                 pass
 
-
     def send_insults(self):
         for insult in self.insults:
             self.insult_service.add_insult(insult)
+            self.insult_filter.add_insult(insult)
             print("Insult sent to server:", insult)
 
     def broadcast(self):
@@ -77,7 +78,7 @@ def main():
                     print(f"Communication error: {e}.")
             elif t == "T":
                 try:
-                    print("Censored texts:", client.insult_service.get_censored_texts())
+                    print("Censored texts:", client.insult_filter.get_censored_texts())
                 except Pyro4.errors.CommunicationError as e:
                     print(f"Communication error: {e}.")
             elif t == "K":
