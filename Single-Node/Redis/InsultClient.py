@@ -1,5 +1,3 @@
-import time
-
 import redis
 import random
 import time
