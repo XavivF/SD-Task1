@@ -1,9 +1,11 @@
 import random
-import signal
 import xmlrpc.client
+from multiprocessing import Value
 from xmlrpc.server import SimpleXMLRPCRequestHandler
 from xmlrpc.server import SimpleXMLRPCServer
 
+# Global counter for processed requests
+processed_requests_counter = Value('i', 0)
 
 # Restrict to a particular path.
 class RequestHandler(SimpleXMLRPCRequestHandler):
@@ -15,10 +17,11 @@ with SimpleXMLRPCServer(('localhost', 8000),
     server.register_introspection_functions()
 
     class Insults:
-        def __init__(self):
+        def __init__(self, req_counter):
             self.insults = []   # received insults
             self.results = []   # censored text
             self.subscribers = []
+            self.counter = req_counter
 
         def add_subscriber(self, url):
             if url not in self.subscribers:
@@ -37,8 +40,9 @@ with SimpleXMLRPCServer(('localhost', 8000),
                     print(f"Error notifying {subscriber_url}: {e}")
             return "Subscribers notified."
 
-
         def add_insult(self, insult):
+            with self.counter.get_lock():
+                self.counter.value += 1
             self.insults.append(insult)
             return f"Insult added: {insult}"
 
@@ -52,31 +56,12 @@ with SimpleXMLRPCServer(('localhost', 8000),
             print(f"Chosen insult: {self.insults[i]}")
             return self.insults[i]
 
-        def filter(self, text):
-            censored_text = ""
-            for word in text.split():
-                if word in self.insults:
-                    censored_text += "CENSORED "
-                else:
-                    censored_text += word + " "
-            if censored_text not in self.results:
-                self.results.append(censored_text)
-            print(f"Filtered text: {censored_text}")
-            return censored_text
+        def get_processed_count(self):
+            with self.counter.get_lock():
+                return self.counter.value
 
-        def get_results(self):
-            return self.results
-        
-        def handle_sigusr1(self, signum, frame):
-            print("Insults: ", self.get_insults())
-
-        def handle_sigusr2(self, signum, frame):
-            print("Results: ", self.get_results())
-
-    insults = Insults()
+    insults = Insults(processed_requests_counter)
     server.register_instance(insults)
-    signal.signal(signal.SIGUSR1, insults.handle_sigusr1)
-    signal.signal(signal.SIGUSR2, insults.handle_sigusr2)
     # Run the server's main loop
     print("Server is running...")
     server.serve_forever()
