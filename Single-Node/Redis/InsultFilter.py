@@ -78,6 +78,7 @@ class InsultFilter:
 
     @Pyro4.expose
     def get_processed_count(self):
+        # Access the shared counter safely
         with self.counter.get_lock():
             return self.counter.value
 

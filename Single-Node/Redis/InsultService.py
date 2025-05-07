@@ -18,7 +18,7 @@ class InsultService:
         with self.counter.get_lock():
              self.counter.value += 1
         client.sadd(self.insultSet, insult)
-        print(f"InsultService added: {insult} (Counter: {self.counter.value})")
+        #print(f"InsultService added: {insult} (Counter: {self.counter.value})")
         return f"Insult added: {insult}"
 
     def get_insults(self):
@@ -54,7 +54,7 @@ class InsultService:
             for message in pubsub.listen():
                 if message['type'] == 'message':
                     insult = message['data']
-                    print(f"InsultService Worker: Received insult via channel: {insult}")
+                    #print(f"InsultService Worker: Received insult via channel: {insult}")
                     self.add_insult(insult)
         except KeyboardInterrupt:
             print("\nInsultService Worker: Stopping listen process...")
@@ -112,10 +112,13 @@ if __name__ == "__main__":
 
     # --- Start background processes for InsultService ---
     print("InsultService: Starting worker processes...")
+    # --- Start background processes for InsultFilter ---
+    print("InsultFilter: Starting worker processes...")
     process_service_notify = Process(target=insults_service.notify_subscribers)
     process_service_listen = Process(target=insults_service.listen)
     process_service_status = Process(target=insults_service.get_status_daemon)
 
+    # Start the processes
     process_service_notify.start()
     process_service_listen.start()
     process_service_status.start()
