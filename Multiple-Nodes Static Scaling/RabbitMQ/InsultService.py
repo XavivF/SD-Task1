@@ -1,0 +1,137 @@
+import pika
+import time
+import random
+from multiprocessing import Process, Manager, Value
+import Pyro4
+
+# Global counter for processed requests
+processed_requests_counter = Value('i', 0)
+
+@Pyro4.expose
+@Pyro4.behavior(instance_mode="single")
+class Insults:
+    def __init__(self, req_counter, shared_insults_list):
+        self.insults_exchange = "insults_exchange"
+        self.channel_broadcast = "Insults_broadcast"
+        self.insults_list = shared_insults_list  # Is a shared list
+        self.counter = req_counter  # Counter for the number of insults added
+
+    def add_insult(self, insult):
+        with self.counter.get_lock():
+             self.counter.value += 1
+        if insult not in self.insults_list:
+            self.insults_list.append(insult)
+        print(f"Insult added: {insult}")
+
+    def get_insults(self):
+        return f"Insult list: {list(self.insults_list)}"
+
+    def insult_me(self):
+        if self.insults_list:
+            insult = random.choice(self.insults_list)
+            # print(f"Chosen insult: {insult}")
+            return insult
+        return None
+
+    def notify_subscribers(self):
+        connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+        channel = connection.channel()
+        channel.exchange_declare(exchange=self.channel_broadcast, exchange_type='fanout')
+
+        while True:
+            if self.insults_list:
+                insult = self.insult_me()
+                if insult is not None:
+                    print(f"Sending insult to subscribers: {insult}")
+                    channel.basic_publish(exchange=self.channel_broadcast, routing_key='', body=insult)
+            time.sleep(5)
+
+    def listen_insults(self):
+        connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+        channel = connection.channel()
+
+        # Declare the same fanout exchange as the publisher
+        channel.exchange_declare(exchange=self.insults_exchange, exchange_type='fanout')
+
+        # Declare a unique, temporary queue for this worker
+        # queue='' generates a unique name, exclusive=True deletes the queue when connection closes
+        unique_queue = channel.queue_declare(queue='', exclusive=True)
+        unique_queue_name = unique_queue.method.queue
+
+        # Bind the worker's queue to the fanout exchange
+        channel.queue_bind(exchange=self.insults_exchange, queue=unique_queue_name)
+
+        def callback(ch, method, properties, body):
+            insult = body.decode('utf-8')
+            # print(f"Received insult: {insult}")
+            self.add_insult(insult)
+
+        channel.basic_consume(queue=unique_queue_name, on_message_callback=callback, auto_ack=True)
+        # print(f"Waiting for messages at {self.channel_insults}...")
+        channel.start_consuming()
+
+    def get_processed_count(self):
+        # Access the shared counter safely
+        with self.counter.get_lock():
+            return self.counter.value
+
+if __name__ == "__main__":
+
+    manager = Manager()
+    # Create a shared list for insults
+    shared_insults = manager.list()
+    # Create the service instance with the shared resources
+    insults_service_instance = Insults(processed_requests_counter, shared_insults)
+
+    # --- Set up Pyro server ---
+    print("Starting Pyro Insult Service for remote access...")
+    try:
+        daemon = Pyro4.Daemon()  # Create the Pyro daemon
+        ns = Pyro4.locateNS()  # Locate the name server
+    except Pyro4.errors.NamingError as e:
+        # You need to have the name server running: python3 -m Pyro4.naming
+        print("Error locating the name server. Make sure it is running.")
+        print("Command: python3 -m Pyro4.naming")
+        exit(1)
+
+    # Register the Insults service instance with the daemon and name server
+    # Clients will connect to this name 'rabbit.counter'
+    uri = daemon.register(insults_service_instance)
+    try:
+        ns.register("rabbit.service", uri)
+        print("Service registered with the name server as 'rabbit.service'")
+    except Pyro4.errors.NamingError as e:
+        print(f"Error registering the service with the name server: {e}")
+        exit(1)
+
+    # --- Set up worker processes (RabbitMQ consumers/notifier) ---
+    # Pass the service instance methods as targets for the processes
+    # These processes will run concurrently with the Pyro daemon
+    process_notify = Process(target=insults_service_instance.notify_subscribers)
+    process_listen_insults = Process(target=insults_service_instance.listen_insults)
+
+    # Start the worker processes
+    process_notify.start()
+    process_listen_insults.start()
+
+    # --- Start the Pyro request loop ---
+    # This loop will block and wait for incoming Pyro calls while
+    # The worker processes run concurrently.
+    print("Pyro daemon started, waiting for requests...")
+    try:
+        daemon.requestLoop()  # Start the event loop of the server to wait for calls
+    except KeyboardInterrupt:
+        print("Pyro daemon interrupted. Shutting down...")
+    finally:
+        # Cleanly terminate worker processes if the Pyro daemon is stopped
+        print("Terminating worker processes...")
+        process_notify.terminate()
+        process_listen_insults.terminate()
+        process_notify.join()
+        process_listen_insults.join()
+        print("Worker processes finished.")
+        # Shutdown Pyro daemon
+        print("Shutting down Pyro daemon...")
+        daemon.shutdown()
+        print("Pyro daemon shut down.")
+        print("Exiting main program.")
