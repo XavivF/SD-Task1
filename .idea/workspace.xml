@@ -63,45 +63,45 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ASKED_SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "Python tests.Python tests for TestInsultClient.TestInsultClient.test_afegir_insults.executor": "Run",
-    "Python tests.Python tests for TestInsultClient.TestInsultClient.test_broadcast.executor": "Run",
-    "Python tests.Python tests for TestInsultClient.TestInsultClient.test_enviar_text.executor": "Run",
-    "Python tests.Python tests for TestInsultServiceHost.TestInsults.executor": "Run",
-    "Python tests.Python tests for TestInsultServiceHost.TestInsults.test_add_insult.executor": "Run",
-    "Python tests.Python tests in TestInsultClient.py.executor": "Run",
-    "Python tests.Python tests in TestInsultServiceHost.py.executor": "Run",
-    "Python tests.Python tests in TestInsultSubscriber.py.executor": "Run",
-    "Python.InsultBroadcaster.executor": "Run",
-    "Python.InsultClient (1).executor": "Run",
-    "Python.InsultClient.executor": "Run",
-    "Python.InsultConsumer.executor": "Run",
-    "Python.InsultFilter.executor": "Run",
-    "Python.InsultProducer.executor": "Run",
-    "Python.InsultReciever.executor": "Run",
-    "Python.InsultService.executor": "Run",
-    "Python.InsultServiceHost.executor": "Run",
-    "Python.InsultSubscriber (1).executor": "Run",
-    "Python.InsultSubscriber.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "SHELLCHECK.PATH": "C:\\Users\\Usuario\\AppData\\Roaming\\JetBrains\\PyCharm2025.1\\plugins\\Shell Script\\linux\\amd64\\shellcheck",
-    "Shell Script.script.sh.executor": "Run",
-    "git-widget-placeholder": "main",
-    "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "//wsl.localhost/Debian/home/joan/SD/SD-Task1/Single-Node/tmp",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ASKED_SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;Python tests.Python tests for TestInsultClient.TestInsultClient.test_afegir_insults.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for TestInsultClient.TestInsultClient.test_broadcast.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for TestInsultClient.TestInsultClient.test_enviar_text.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for TestInsultServiceHost.TestInsults.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for TestInsultServiceHost.TestInsults.test_add_insult.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests in TestInsultClient.py.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests in TestInsultServiceHost.py.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests in TestInsultSubscriber.py.executor&quot;: &quot;Run&quot;,
+    &quot;Python.InsultBroadcaster.executor&quot;: &quot;Run&quot;,
+    &quot;Python.InsultClient (1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.InsultClient.executor&quot;: &quot;Run&quot;,
+    &quot;Python.InsultConsumer.executor&quot;: &quot;Run&quot;,
+    &quot;Python.InsultFilter.executor&quot;: &quot;Run&quot;,
+    &quot;Python.InsultProducer.executor&quot;: &quot;Run&quot;,
+    &quot;Python.InsultReciever.executor&quot;: &quot;Run&quot;,
+    &quot;Python.InsultService.executor&quot;: &quot;Run&quot;,
+    &quot;Python.InsultServiceHost.executor&quot;: &quot;Run&quot;,
+    &quot;Python.InsultSubscriber (1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.InsultSubscriber.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;SHELLCHECK.PATH&quot;: &quot;C:\\Users\\Usuario\\AppData\\Roaming\\JetBrains\\PyCharm2025.1\\plugins\\Shell Script\\linux\\amd64\\shellcheck&quot;,
+    &quot;Shell Script.script.sh.executor&quot;: &quot;Run&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;//wsl.localhost/Debian/home/joan/SD/SD-Task1/Single-Node/tmp&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="\\wsl.localhost\Debian\home\joan\SD\SD-Task1\Single-Node\tmp" />
@@ -299,6 +299,7 @@
       <workItem from="1745394562579" duration="473000" />
       <workItem from="1745781460802" duration="1693000" />
       <workItem from="1745938305974" duration="7079000" />
+      <workItem from="1746598756889" duration="4037000" />
     </task>
     <servers />
   </component>
