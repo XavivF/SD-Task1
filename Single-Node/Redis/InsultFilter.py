@@ -13,16 +13,15 @@ class InsultFilter:
         self.workQueue = "Work_queue"
         self.counter = filter_counter # Counter for the number of times filtered text
 
-    @Pyro4.expose
     def add_insult(self, insult):
         with self.counter.get_lock():
              self.counter.value += 1
         client.sadd(self.insultSet, insult)
-        print(f"InsultFilter: Insult added (internal): {insult} (Counter: {self.counter.value})")
+        # print(f"InsultFilter: Insult added (internal): {insult} (Counter: {self.counter.value})")
         return f"Insult added (internal): {insult}"
 
     def filter_text(self, text):
-        print(f"InsultFilter: Received text to filter: {text}")
+        # print(f"InsultFilter: Received text to filter: {text}")
         censored_text = ""
         if text is not None:
             insults = client.smembers(self.insultSet)
@@ -31,21 +30,11 @@ class InsultFilter:
                     censored_text += "CENSORED "
                 else:
                     censored_text += word + " "
-        print("PROVA " + censored_text)
         return censored_text.strip() # Remove trailing space
-
-    def enqueue_text_for_filtering(self, text):
-        if text:
-            client.lpush(self.workQueue, text)
-            print(f"InsultFilter: Added text to queue: {text}")
-            return f"Text added to filter queue: {text}"
-        return "No text provided to enqueue."
 
     def get_censored_texts(self):
         results = client.lrange(self.censoredTextsList, 0, -1)
         return f"Censored texts:{results}"
-
-    # --- Background process for filter service ---
 
     def filter_service(self):
         print("InsultFilter Service: Starting filter_service...")
@@ -54,11 +43,11 @@ class InsultFilter:
                 item = client.blpop(self.workQueue)     # Blocking pop from the work queue
                 if item:
                     queue_name, text = item
-                    print(f"InsultFilter Worker: Processing text from {queue_name}: Text: {text}")
+                    # print(f"InsultFilter Worker: Processing text from {queue_name}: Text: {text}")
                     with self.counter.get_lock():
                         self.counter.value += 1
                     filtered_text = self.filter_text(text)
-                    print(f"InsultFilter Worker: Filtered text: {filtered_text} (Counter: {self.counter.value})")
+                    # print(f"InsultFilter Worker: Filtered text: {filtered_text} (Counter: {self.counter.value})")
                     client.rpush(self.censoredTextsList, filtered_text)
         except KeyboardInterrupt:
             print("\nInsultFilter Service: Stopping filter_service...")

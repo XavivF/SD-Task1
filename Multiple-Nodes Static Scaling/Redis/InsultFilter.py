@@ -4,7 +4,6 @@ import Pyro4
 from multiprocessing import Value, Process
 import time
 
-
 @Pyro4.behavior(instance_mode="single")
 class InsultFilter:
     def __init__(self, filter_counter, redis_host, redis_port):
@@ -14,7 +13,6 @@ class InsultFilter:
         self.counter = filter_counter # Counter for the number of times filtered text
         self.client = redis.Redis(host=redis_host, port=redis_port, db=0, decode_responses=True)
 
-    @Pyro4.expose
     def add_insult(self, insult):
         with self.counter.get_lock():
              self.counter.value += 1
@@ -34,18 +32,9 @@ class InsultFilter:
                     censored_text += word + " "
         return censored_text.strip() # Remove trailing space
 
-    def enqueue_text_for_filtering(self, text):
-        if text:
-            self.client.lpush(self.workQueue, text)
-            print(f"InsultFilter: Added text to queue: {text}")
-            return f"Text added to filter queue: {text}"
-        return "No text provided to enqueue."
-
     def get_censored_texts(self):
         results = self.client.lrange(self.censoredTextsList, 0, -1)
         return f"Censored texts:{results}"
-
-    # --- Background process for filter service ---
 
     def filter_service(self):
         print("InsultFilter Service: Starting filter_service...")
