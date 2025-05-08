@@ -169,7 +169,7 @@ def run_stress_test(mode, host, port, insult_queue, work_queue, duration, concur
 
     # --- Phase 2: Get statistics from the service via Pyro ---
     total_processed_count = 0
-    # Get stats from InsultService instances
+    # Get stats from the service instances
     for i in range(1, num_service_instances + 1):
         service_instance_name = f"{pyro_name}.{i}"
         try:

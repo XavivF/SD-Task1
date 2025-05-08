@@ -1,3 +1,4 @@
+import argparse
 import Pyro4
 import pika
 from multiprocessing import Manager, Value, Process
@@ -44,7 +45,7 @@ class InsultFilter:
                 self.counter.value += 1
             if filtered_text not in self.censored_texts:
                 self.censored_texts.append(filtered_text)
-            print(f"Censored text: {filtered_text}")
+            # print(f"Censored text: {filtered_text}")
 
         channel.basic_consume(queue=self.text_queue, on_message_callback=callback, auto_ack=True)
         print(f"Waiting for texts to censor at {self.text_queue}...")
@@ -83,6 +84,10 @@ class InsultFilter:
 
 # Example of how to run the InsultFilterService
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-id", "--instance-id", type=int, default=1, help="Service instance ID", required=True)
+    args = parser.parse_args()
+
     manager = Manager()
     # Create a shared list for insults
     shared_insults = manager.list()
@@ -106,8 +111,8 @@ if __name__ == "__main__":
     # Clients will connect to this name 'rabbit.counter'
     uri = daemon.register(filter_service_instance)
     try:
-        ns.register("rabbit.filter", uri)
-        print("Service registered with the name server as 'rabbit.filter'")
+        ns.register(f"rabbit.filter.{args.instance_id}", uri)
+        print(f"Service registered with the name server as 'rabbit.filter.{args.instance_id}'")
     except Pyro4.errors.NamingError as e:
         print(f"Error registering the service with the name server: {e}")
         exit(1)

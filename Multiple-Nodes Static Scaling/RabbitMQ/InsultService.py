@@ -1,3 +1,4 @@
+import argparse
 import pika
 import time
 import random
@@ -21,7 +22,7 @@ class Insults:
              self.counter.value += 1
         if insult not in self.insults_list:
             self.insults_list.append(insult)
-        print(f"Insult added: {insult}")
+        # print(f"Insult added: {insult}")
 
     def get_insults(self):
         return f"Insult list: {list(self.insults_list)}"
@@ -76,6 +77,9 @@ class Insults:
             return self.counter.value
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-id", "--instance-id", type=int, default=1, help="Service instance ID", required=True)
+    args = parser.parse_args()
 
     manager = Manager()
     # Create a shared list for insults
@@ -98,8 +102,8 @@ if __name__ == "__main__":
     # Clients will connect to this name 'rabbit.counter'
     uri = daemon.register(insults_service_instance)
     try:
-        ns.register("rabbit.service", uri)
-        print("Service registered with the name server as 'rabbit.service'")
+        ns.register(f"rabbit.service.{args.instance_id}", uri)
+        print(f"Service registered with the name server as 'rabbit.service.{args.instance_id}'")
     except Pyro4.errors.NamingError as e:
         print(f"Error registering the service with the name server: {e}")
         exit(1)

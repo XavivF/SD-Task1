@@ -95,10 +95,10 @@ def worker_filter_text(host, queue_name, results_queue, end_time):
             connection.close()
 
 # --- Main Test Function ---
-def run_stress_test(mode, host, insult_queue, work_queue, pyro_name, duration, concurrency):
-    if (mode == "filter_text") and (pyro_name == "rabbit.service"):
-        print(f"Error: The mode '{mode}' is not compatible with the Pyro name '{pyro_name}'.", file=sys.stderr)
-        exit (1)
+def run_stress_test(mode, host, insult_queue, work_queue, duration, concurrency, num_service_instances):
+    if mode == "filter_service": pyro_name = DEFAULT_PYRO_NAME_FILTER
+    if mode == "add_insult": pyro_name = DEFAULT_PYRO_NAME_SERVICE
+
     print(f"Starting stress test (RabbitMQ+Pyro with Multiprocessing) in mode '{mode}'...")
     print(f"RabbitMQ Host: {host}")
     print(f"Insults Queue: {insult_queue}")
@@ -148,25 +148,19 @@ def run_stress_test(mode, host, insult_queue, work_queue, pyro_name, duration, c
     print("-" * 30)
 
     # --- Phase 2: Get statistics from the service via Pyro ---
-    processed_count_service = -1  # Default value if Pyro call fails
-    print(f"Connecting to Pyro ('{pyro_name}') to get service statistics...")
-    try:
-        # Connect to the service exposed by Pyro
-        server_proxy = Pyro4.Proxy(f"PYRONAME:{pyro_name}")
-        server_proxy._pyroTimeout = 10  # Set a timeout for Pyro connection/calls
-
-        # Call the method to get the counter
-        processed_count_service = server_proxy.get_processed_count()
-        print(f"Statistics received from the service via Pyro.")
-
-    except Pyro4.errors.NamingError:
-        print(f"Error: Pyro service named '{pyro_name}' not found. Ensure the Name Server is running and the service is registered.", file=sys.stderr)
-    except AttributeError:
-         print(f"Error: The remote Pyro object ('{pyro_name}') does not have the exposed method 'get_processed_count'.", file=sys.stderr)
-         print("Ensure the method is correctly defined with @Pyro4.expose in InsultService.py.", file=sys.stderr)
-    except Exception as e:
-        print(f"Error connecting or calling the Pyro service ('{pyro_name}'): {e}", file=sys.stderr)
-        print("Ensure the InsultService.py service is running and has registered '{pyro_name}'.", file=sys.stderr)
+    total_processed_count = 0
+    # Get stats from InsultService instances
+    for i in range(1, num_service_instances + 1):
+        service_instance_name = f"{pyro_name}.{i}"
+        try:
+            server_proxy = Pyro4.Proxy(f"PYRONAME:{service_instance_name}")
+            server_proxy._pyroTimeout = 10
+            total_processed_count += server_proxy.get_processed_count()
+            print(f"Stats retrieved from {service_instance_name}.")
+        except Pyro4.errors.NamingError:
+            print(f"Warning: Instance '{service_instance_name}' not found.", file=sys.stderr)
+        except Exception as e:
+            print(f"Error retrieving stats from {service_instance_name}: {e}", file=sys.stderr)
 
         # --- Phase 3: Display results ---
     print("-" * 30)
@@ -183,10 +177,10 @@ def run_stress_test(mode, host, insult_queue, work_queue, pyro_name, duration, c
         print("Client throughput: N/A (duration too short)")
 
     print("--- Service Statistics (via Pyro) ---")
-    if processed_count_service != -1:
-        print(f"Requests processed by the service: {processed_count_service}")
+    if total_processed_count != 0:
+        print(f"Requests processed by the service: {total_processed_count}")
         if actual_duration > 0:
-            server_throughput = processed_count_service / actual_duration
+            server_throughput = total_processed_count / actual_duration
             print(f"Server throughput (requests/second): {server_throughput:.2f}")
     else:
         print("Could not retrieve service statistics via Pyro.")
@@ -203,14 +197,14 @@ if __name__ == "__main__":
                         help=f"RabbitMQ queue name for adding insults (default: {DEFAULT_INSULT_EXCHANGE})")
     parser.add_argument("--work-queue", default=DEFAULT_TEXT_QUEUE,
                         help=f"RabbitMQ queue name for filtering texts (default: {DEFAULT_TEXT_QUEUE})")
-    parser.add_argument("--pyro-name", default=DEFAULT_PYRO_NAME_SERVICE,
-                        help=f"Name of the Pyro object in the name server, - {DEFAULT_PYRO_NAME_SERVICE} - or - {DEFAULT_PYRO_NAME_FILTER} - (default: {DEFAULT_PYRO_NAME_SERVICE})")
     parser.add_argument("-d", "--duration", type=int, default=DEFAULT_DURATION,
                         help=f"Test duration in seconds (default: {DEFAULT_DURATION})")
     parser.add_argument("-c", "--concurrency", type=int, default=DEFAULT_CONCURRENCY,
                         help=f"Number of concurrent processes (default: {DEFAULT_CONCURRENCY})")
+    parser.add_argument("-n", "--num-instances", type=int, default=1, required=True,
+                        help="Number of service instances to query for statistics (required)")
 
     args = parser.parse_args()
 
     # Call the main function with the parsed arguments
-    run_stress_test(args.mode, args.host, args.insult_queue, args.work_queue, args.pyro_name, args.duration,args.concurrency)
+    run_stress_test(args.mode, args.host, args.insult_queue, args.work_queue, args.duration, args.concurrency, args.num_instances)
