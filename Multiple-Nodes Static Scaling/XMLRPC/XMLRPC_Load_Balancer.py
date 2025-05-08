@@ -2,6 +2,7 @@ import xmlrpc.client
 from xmlrpc.server import SimpleXMLRPCRequestHandler, SimpleXMLRPCServer
 import argparse
 import threading
+import sys
 
 class RequestHandler(SimpleXMLRPCRequestHandler):
     rpc_paths = ('/RPC2',)
@@ -61,7 +62,8 @@ if __name__ == "__main__":
     # Initialize the load balancer with the backend URLs
     lb = XmlrpcLoadBalancer(args.backend_urls)
 
-    # Create server
+# Create server
+try:
     with SimpleXMLRPCServer(('localhost', args.port), requestHandler=RequestHandler, allow_none=True) as server:
         server.register_introspection_functions()
 
@@ -79,3 +81,12 @@ if __name__ == "__main__":
         print(f"Load Balancer running on localhost:{args.port} in mode '{args.mode}'...")
         print(f"Backend servers: {args.backend_urls}")
         server.serve_forever()
+except KeyboardInterrupt:
+    print("\nShutting down LoadBalancer...")
+    sys.exit(0)
+except PermissionError:
+    print(f"Error: Could not bind to port {port}. Permission denied. Try a port above 1024.", file=sys.stderr)
+    sys.exit(1)
+except Exception as e:
+    print(f"An error occurred: {e}", file=sys.stderr)
+    sys.exit(1)
