@@ -1,33 +1,33 @@
 import redis
+import argparse
 import time
 import Pyro4
 from multiprocessing import Process, Value
 
-# Connect to Redis
-client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
 
 @Pyro4.behavior(instance_mode="single")
 class InsultService:
-    def __init__(self, service_counter):
+    def __init__(self, service_counter, redis_host, redis_port):
         self.channel_insults = "Insults_channel"
         self.channel_broadcast = "Insults_broadcast"
         self.insultSet = "INSULTS"
         self.counter = service_counter  # Counter for the number of insults added
+        self.client = redis.Redis(host=redis_host, port=redis_port, db=0, decode_responses=True)
 
     def add_insult(self, insult):
         with self.counter.get_lock():
              self.counter.value += 1
-        client.sadd(self.insultSet, insult)
-        print(f"InsultService added: {insult} (Counter: {self.counter.value})")
+        self.client.sadd(self.insultSet, insult)
+        # print(f"InsultService added: {insult} (Counter: {self.counter.value})")
         return f"Insult added: {insult}"
 
     def get_insults(self):
-        insults_list = client.smembers(self.insultSet)
+        insults_list = self.client.smembers(self.insultSet)
         return f"Insult list: {insults_list}"
 
     def insult_me(self):
-        if client.scard(self.insultSet) != 0:
-            insult = client.srandmember(self.insultSet)
+        if self.client.scard(self.insultSet) != 0:
+            insult = self.client.srandmember(self.insultSet)
             print(f"InsultService Broadcast: chosen: {insult}")
             return insult
         return "Insult list is empty"
@@ -40,7 +40,7 @@ class InsultService:
             while True:
                 insult = self.insult_me()
                 if insult and insult != "Insult list is empty":
-                    client.publish(self.channel_broadcast, insult)
+                    self.client.publish(self.channel_broadcast, insult)
                     # print(f"InsultService Worker: Notified subscribers with: {insult}")
                 time.sleep(5)
         except KeyboardInterrupt:
@@ -48,7 +48,7 @@ class InsultService:
 
     def listen(self):
         print("InsultService Worker: Starting listen...")
-        pubsub = client.pubsub()
+        pubsub = self.client.pubsub()
         pubsub.subscribe(self.channel_insults)
         try:
             for message in pubsub.listen():
@@ -79,10 +79,16 @@ class InsultService:
 
 # --- Main execution block for InsultService ---
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--redis-host", default="localhost", help="Redis host")
+    parser.add_argument("--redis-port", type=int, default=6379, help="Redis port")
+    parser.add_argument("--instance-id", type=int, default=1, help="Service instance ID", required=True)
+    args = parser.parse_args()
+
     print("Starting InsultService...")
 
     processed_requests_counter = Value('i', 0)
-    insults_service = InsultService(processed_requests_counter)     # Create the InsultService instance
+    insults_service = InsultService(processed_requests_counter, args.redis_host, args.redis_port)     # Create the InsultService instance
 
     # --- Set up Pyro server ---
     print("Starting Pyro InsultService for remote access...")
@@ -96,7 +102,7 @@ if __name__ == "__main__":
 
     # Register the Insults service instance with the daemon and name server
     # Clients will connect to this name 'redis.insultservice'
-    service_name = "redis.insultservice"
+    service_name = f"redis.insultservice.{args.instance_id}"
     uri = daemon.register(insults_service)
     try:
         ns.register(service_name, uri)
@@ -106,7 +112,7 @@ if __name__ == "__main__":
         exit(1)
 
     print("InsultService: Clearing initial Redis keys (INSULTS)...")
-    client.delete(insults_service.insultSet)
+    insults_service.client.delete(insults_service.insultSet)
     print("Redis keys cleared.")
 
 

@@ -1,48 +1,48 @@
 import redis
+import argparse
 import Pyro4
 from multiprocessing import Value, Process
 import time
 
-client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
 
 @Pyro4.behavior(instance_mode="single")
 class InsultFilter:
-    def __init__(self, filter_counter):
+    def __init__(self, filter_counter, redis_host, redis_port):
         self.insultSet = "INSULTS"
         self.censoredTextsList = "RESULTS"
         self.workQueue = "Work_queue"
         self.counter = filter_counter # Counter for the number of times filtered text
+        self.client = redis.Redis(host=redis_host, port=redis_port, db=0, decode_responses=True)
 
     @Pyro4.expose
     def add_insult(self, insult):
         with self.counter.get_lock():
              self.counter.value += 1
-        client.sadd(self.insultSet, insult)
+        self.client.sadd(self.insultSet, insult)
         print(f"InsultFilter: Insult added (internal): {insult} (Counter: {self.counter.value})")
         return f"Insult added (internal): {insult}"
 
     def filter_text(self, text):
-        print(f"InsultFilter: Received text to filter: {text}")
+        # print(f"InsultFilter: Received text to filter: {text}")
         censored_text = ""
         if text is not None:
-            insults = client.smembers(self.insultSet)
+            insults = self.client.smembers(self.insultSet)
             for word in text.split():
                 if word.lower() in insults:
                     censored_text += "CENSORED "
                 else:
                     censored_text += word + " "
-        print("PROVA " + censored_text)
         return censored_text.strip() # Remove trailing space
 
     def enqueue_text_for_filtering(self, text):
         if text:
-            client.lpush(self.workQueue, text)
+            self.client.lpush(self.workQueue, text)
             print(f"InsultFilter: Added text to queue: {text}")
             return f"Text added to filter queue: {text}"
         return "No text provided to enqueue."
 
     def get_censored_texts(self):
-        results = client.lrange(self.censoredTextsList, 0, -1)
+        results = self.client.lrange(self.censoredTextsList, 0, -1)
         return f"Censored texts:{results}"
 
     # --- Background process for filter service ---
@@ -51,15 +51,15 @@ class InsultFilter:
         print("InsultFilter Service: Starting filter_service...")
         try:
             while True:
-                item = client.blpop(self.workQueue)     # Blocking pop from the work queue
+                item = self.client.blpop(self.workQueue)     # Blocking pop from the work queue
                 if item:
                     queue_name, text = item
-                    print(f"InsultFilter Worker: Processing text from {queue_name}: Text: {text}")
+                    # print(f"InsultFilter Worker: Processing text from {queue_name}: Text: {text}")
                     with self.counter.get_lock():
                         self.counter.value += 1
                     filtered_text = self.filter_text(text)
-                    print(f"InsultFilter Worker: Filtered text: {filtered_text} (Counter: {self.counter.value})")
-                    client.rpush(self.censoredTextsList, filtered_text)
+                    # print(f"InsultFilter Worker: Filtered text: {filtered_text} (Counter: {self.counter.value})")
+                    self.client.rpush(self.censoredTextsList, filtered_text)
         except KeyboardInterrupt:
             print("\nInsultFilter Service: Stopping filter_service...")
             exit(1)
@@ -83,10 +83,15 @@ class InsultFilter:
 
 # --- Main execution block for InsultFilter ---
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--redis-host", default="localhost", help="Redis host")
+    parser.add_argument("--redis-port", type=int, default=6379, help="Redis port")
+    parser.add_argument("--instance-id", type=int, default=1, help="Service instance ID", required=True)
+    args = parser.parse_args()
     print("Starting InsultFilter...")
 
     filtered_requests_counter = Value('i', 0)
-    insult_filter = InsultFilter(filtered_requests_counter)     # Create the InsultFilter instance
+    insult_filter = InsultFilter(filtered_requests_counter, args.redis_host, args.redis_port)     # Create the InsultFilter instance
 
     # --- Set up Pyro server ---
     print("Starting Pyro InsultFilter for remote access...")
@@ -101,7 +106,7 @@ if __name__ == "__main__":
 
     # Register InsultFilter service instance with the daemon and name server
     # Clients will connect to this name 'redis.insultfilter'
-    filter_name = "redis.insultfilter"
+    filter_name = f"redis.insultfilter.{args.instance_id}"
     uri = daemon.register(insult_filter)
     try:
         ns.register(filter_name, uri)
@@ -111,9 +116,9 @@ if __name__ == "__main__":
         exit(1)
 
     print("InsultFilter: Clearing initial Redis keys (INSULTS, RESULTS, Work_queue)...")
-    client.delete(insult_filter.insultSet)
-    client.delete(insult_filter.censoredTextsList)
-    client.delete(insult_filter.workQueue)
+    insult_filter.client.delete(insult_filter.insultSet)
+    insult_filter.client.delete(insult_filter.censoredTextsList)
+    insult_filter.client.delete(insult_filter.workQueue)
     print("Redis keys cleared.")
 
     # --- Start background processes for InsultFilter ---
