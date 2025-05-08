@@ -8,7 +8,7 @@ from multiprocessing import Process, Value
 @Pyro4.behavior(instance_mode="single")
 class InsultService:
     def __init__(self, service_counter, redis_host, redis_port):
-        self.channel_insults = "Insults_channel"
+        self.queue_insults = "Insults_queue"
         self.channel_broadcast = "Insults_broadcast"
         self.insultSet = "INSULTS"
         self.counter = service_counter  # Counter for the number of insults added
@@ -48,13 +48,12 @@ class InsultService:
 
     def listen(self):
         print("InsultService Worker: Starting listen...")
-        pubsub = self.client.pubsub()
-        pubsub.subscribe(self.channel_insults)
         try:
-            for message in pubsub.listen():
-                if message['type'] == 'message':
-                    insult = message['data']
-                    print(f"InsultService Worker: Received insult via channel: {insult}")
+            while True:
+                item = self.client.blpop(self.queue_insults)
+                if item:
+                    queue_name, insult = item
+                    # print(f"InsultService Worker: Processed insult: {insult} (Counter: {self.counter.value})")
                     self.add_insult(insult)
         except KeyboardInterrupt:
             print("\nInsultService Worker: Stopping listen process...")

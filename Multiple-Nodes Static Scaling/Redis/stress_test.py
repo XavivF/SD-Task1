@@ -11,7 +11,7 @@ import Pyro4
 # --- Configuration ---
 DEFAULT_REDIS_HOST = 'localhost'
 DEFAULT_REDIS_PORT = 6379
-DEFAULT_INSULT_CHANNEL = 'Insults_channel' # Channel where new insults are published
+DEFAULT_INSULT_QUEUE = 'Insults_queue'
 DEFAULT_WORK_QUEUE = 'Work_queue'         # List (queue) where texts to filter are sent
 
 
@@ -36,7 +36,7 @@ TEXTS_TO_FILTER = [
 
 
 # --- Worker Functions (executed in separate processes) ---
-def worker_add_insult(host, port, channel_name, results_queue, end_time):
+def worker_add_insult(host, port, queue_name, results_queue, end_time):
     local_request_count = 0
     local_error_count = 0
     redis_client = None
@@ -51,7 +51,7 @@ def worker_add_insult(host, port, channel_name, results_queue, end_time):
         while time.time() < end_time:
             try:
                 insult = random.choice(INSULTS_TO_ADD) + str(random.randint(1, 10000))
-                redis_client.publish(channel_name, insult)
+                redis_client.rpush(queue_name, insult)
                 local_request_count += 1
             except redis.exceptions.ConnectionError as e:
                 print(f"[Process {pid}] Redis connection error publishing insult: {e}", file=sys.stderr)
@@ -111,14 +111,14 @@ def worker_filter_text(host, port, queue_name, results_queue, end_time):
             # print(f"[Procés {pid}] Connexió Redis tancada.")  # TODO: Uncomment this line to see the Redis connection close message
 
 # --- Main Test Function ---
-def run_stress_test(mode, host, port, insult_channel, work_queue, duration, concurrency, num_service_instances):
+def run_stress_test(mode, host, port, insult_queue, work_queue, duration, concurrency, num_service_instances):
     if mode == 'add_insult':
         pyro_name = DEFAULT_PYRO_SERVICE_NAME
     elif mode == 'filter_text':
         pyro_name = DEFAULT_PYRO_FILTER_NAME
     print(f"Starting stress test (Redis direct interaction) in mode '{mode}'...")
     print(f"Redis Host: {host}:{port}")
-    print(f"Insult Channel (for add_insult mode): {insult_channel}")
+    print(f"Insult Queue (for add_insult mode): {insult_queue}")
     print(f"Filter Queue (for filter_text mode): {work_queue}")
     print(f"Pyro Name (for stats): {pyro_name}")
     print(f"Duration: {duration} seconds")
@@ -127,7 +127,7 @@ def run_stress_test(mode, host, port, insult_channel, work_queue, duration, conc
 
     if mode == 'add_insult':
         worker_function = worker_add_insult
-        target = insult_channel
+        target = insult_queue
     elif mode == 'filter_text':
         worker_function = worker_filter_text
         target = work_queue
@@ -215,13 +215,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Stress Test Script (Multiprocessing) for Insult Services via Redis (Load) and Pyro (Stats)")
     parser.add_argument("mode", choices=['add_insult', 'filter_text'],
-                        help="The functionality to test ('add_insult' publishes to Redis channel; 'filter_text' pushes to Redis queue)")
+                        help="The functionality to test ('add_insult' pushes to Redis queue; 'filter_text' pushes to Redis queue)")
     parser.add_argument("--host", default=DEFAULT_REDIS_HOST,
                         help=f"Redis server host (default: {DEFAULT_REDIS_HOST})")
     parser.add_argument("--port", type=int, default=DEFAULT_REDIS_PORT,
                         help=f"Redis server port (default: {DEFAULT_REDIS_PORT})")
-    parser.add_argument("--insult-channel", default=DEFAULT_INSULT_CHANNEL,
-                        help=f"Name of the Redis channel for publishing insults (default: {DEFAULT_INSULT_CHANNEL})")
+    parser.add_argument("--insult-queue", default=DEFAULT_INSULT_QUEUE,
+                        help=f"Name of the Redis queue for publishing insults (default: {DEFAULT_INSULT_QUEUE})")
     parser.add_argument("--work-queue", default=DEFAULT_WORK_QUEUE,
                         help=f"Name of the Redis list/queue for filtering texts (default: {DEFAULT_WORK_QUEUE})")
     parser.add_argument("-d", "--duration", type=int, default=DEFAULT_DURATION,
@@ -233,5 +233,5 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    run_stress_test(args.mode, args.host, args.port, args.insult_channel, args.work_queue,
+    run_stress_test(args.mode, args.host, args.port, args.insult_queue, args.work_queue,
                                 args.duration, args.concurrency, args.num_service_instances)
