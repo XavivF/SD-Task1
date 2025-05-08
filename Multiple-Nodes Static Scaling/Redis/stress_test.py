@@ -111,10 +111,11 @@ def worker_filter_text(host, port, queue_name, results_queue, end_time):
             # print(f"[Procés {pid}] Connexió Redis tancada.")  # TODO: Uncomment this line to see the Redis connection close message
 
 # --- Main Test Function ---
-def run_stress_test(mode, host, port, insult_channel, work_queue, pyro_name, duration, concurrency, num_service_instances):
-    if (mode == "filter_text") and (pyro_name == "pyro.service"):
-        print(f"Error: The mode '{mode}' is not compatible with the Pyro name '{pyro_name}'.", file=sys.stderr)
-        exit(1)
+def run_stress_test(mode, host, port, insult_channel, work_queue, duration, concurrency, num_service_instances):
+    if mode == 'add_insult':
+        pyro_name = DEFAULT_PYRO_SERVICE_NAME
+    elif mode == 'filter_text':
+        pyro_name = DEFAULT_PYRO_FILTER_NAME
     print(f"Starting stress test (Redis direct interaction) in mode '{mode}'...")
     print(f"Redis Host: {host}:{port}")
     print(f"Insult Channel (for add_insult mode): {insult_channel}")
@@ -131,7 +132,7 @@ def run_stress_test(mode, host, port, insult_channel, work_queue, pyro_name, dur
         worker_function = worker_filter_text
         target = work_queue
     else:
-        print(f"Error: Mode '{mode}' not recognized.", file=sys.stderr)
+        print(f"Error: Mode '{mode}' not recognized.\nOptions: 'add_insult', 'filter_service'.", file=sys.stderr)
         return
 
     results_queue = Queue()
@@ -223,8 +224,6 @@ if __name__ == "__main__":
                         help=f"Name of the Redis channel for publishing insults (default: {DEFAULT_INSULT_CHANNEL})")
     parser.add_argument("--work-queue", default=DEFAULT_WORK_QUEUE,
                         help=f"Name of the Redis list/queue for filtering texts (default: {DEFAULT_WORK_QUEUE})")
-    parser.add_argument("--pyro-name", default=DEFAULT_PYRO_SERVICE_NAME,
-                        help=f"Name of the Pyro object in the name server, - {DEFAULT_PYRO_SERVICE_NAME} - or - {DEFAULT_PYRO_FILTER_NAME} - (default: {DEFAULT_PYRO_SERVICE_NAME})")
     parser.add_argument("-d", "--duration", type=int, default=DEFAULT_DURATION,
                         help=f"Test duration in seconds (default: {DEFAULT_DURATION})")
     parser.add_argument("-c", "--concurrency", type=int, default=DEFAULT_CONCURRENCY,
@@ -235,4 +234,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     run_stress_test(args.mode, args.host, args.port, args.insult_channel, args.work_queue,
-                    args.pyro_name, args.duration, args.concurrency, args.num_service_instances)
+                                args.duration, args.concurrency, args.num_service_instances)
