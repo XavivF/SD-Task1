@@ -1,6 +1,7 @@
-import random
 import threading
 import Pyro4
+import argparse
+import sys
 
 @Pyro4.expose
 @Pyro4.behavior(instance_mode="single")
@@ -46,18 +47,37 @@ class InsultFilter:
             return self.processed_requests_count
 
 def main():
-    print("Starting Pyro Insult Filter...")
+    parser = argparse.ArgumentParser(description="Pyro Insult Filter")
+    parser.add_argument("--port", type=int, default=8000, required=True,
+                        help="Port to bind the daemon to (default: 8000)")
+
+    parser.add_argument("-id", "--instance-id", type=int, default=1, required=True,
+                        help="Filter instance ID (e.g., 1, 2, 3)")
+    args = parser.parse_args()
+    pyro_name = f"pyro.filter.{args.instance_id}"
+    print(f"Starting Pyro Insult Filter with ID {args.instance_id} and name '{pyro_name}'...")
+
     try:
-        daemon = Pyro4.Daemon()  # Create the Pyro daemon
-        ns = Pyro4.locateNS()  # Locate the name server
+        daemon = Pyro4.Daemon(host=None, port=args.port)  # Create the Pyro daemon with the specified port
+        ns = Pyro4.locateNS()
     except Pyro4.errors.NamingError:
         # You need to have the name server running: python3 -m Pyro4.naming
         print("Error locating the name server. Make sure it is running.")
         print("Command: python3 -m Pyro4.naming")
-        exit(1)
+        sys.exit(1)
+    except Exception as e:
+        print(f"An error occurred during Pyro initialization: {e}", file=sys.stderr)
+        sys.exit(1)
+
     uri = daemon.register(InsultFilter)  # Register the service as a Pyro object
-    ns.register("pyro.filter", uri)  # Register the service with a name
-    print("Insult Filter is ready.")
+    # Register the instance with the unique name
+    try:
+        ns.register(pyro_name, uri)
+        print(f"Insult Filter registered as '{pyro_name}' with URI: {uri}")
+    except Pyro4.errors.NamingError as e:
+        print(f"Error registering service '{pyro_name}' with the name server: {e}", file=sys.stderr)
+        sys.exit(1)
+    print(f"Insult Filter ID {args.instance_id} is ready.")
     daemon.requestLoop()  # Start the event loop of the server to wait for calls
 
 
