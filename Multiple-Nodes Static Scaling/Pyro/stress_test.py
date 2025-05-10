@@ -4,20 +4,19 @@ from multiprocessing import Process, Queue
 import random
 import argparse
 import sys
-import os
 import Pyro4.errors
-import itertools # For Round Robin strategy
 
 # --- Configuration ---
-# Prefixes for the sequential Pyro names of the services
-DEFAULT_PYRO_SERVICE_PREFIX = "pyro.service"
-DEFAULT_PYRO_FILTER_PREFIX = "pyro.filter"
+# Name for the LoadBalancer in the Name Server
+DEFAULT_PYRO_LOADBALANCER = "pyro.loadbalancer"
 DEFAULT_DURATION = 10  # Seconds
 DEFAULT_CONCURRENCY = 10 # Number of concurrent processes
 
 # --- Test Data ---
-INSULTS_TO_ADD = ["tonto", "lleig", "boig", "idiota", "estúpid", "inútil", "desastre", "fracassat", "covard", "mentider",
-                  "beneit", "capsigrany", "ganàpia", "nyicris", "gamarús", "bocamoll", "murri", "dropo", "bleda", "xitxarel·lo"]
+INSULTS_TO_ADD = [
+    "tonto", "lleig", "boig", "idiota", "estúpid", "inútil", "desastre", "fracassat", "covard", "mentider",
+    "beneit", "capsigrany", "ganàpia", "nyicris", "gamarús", "bocamoll", "murri", "dropo", "bleda", "xitxarel·lo"
+]
 TEXTS_TO_FILTER = [
     "ets tonto i estas boig", "ets molt inútil", "ets una mica desastre", "ets massa fracassat",
     "ets un poc covard", "ets molt molt mentider", "ets super estúpid", "ets bastant idiota",
@@ -27,216 +26,139 @@ TEXTS_TO_FILTER = [
     "Aquest xitxarel·lo es pensa que ho sap tot."
 ]
 
-# --- Worker Functions (executed in separate processes) ---
-# These functions implement client-side load balancing using the list of specific Pyro names
-def worker_request(pyro_names_list, request_type, results_queue, end_time, ns_host, ns_port):
-    local_request_count = 0
-    local_error_count = 0
-    pid = os.getpid()
+# --- Worker Function ---
+def worker_request(duration, results_queue, ns_host, ns_port, mode):
+    requests_sent = 0
+    errors = 0
+    load_balancer = None
 
-    # List of proxies for the backends. Each worker has its own list of proxies.
-    backend_proxies = []
     try:
-        # Locate the Name Server first
-        ns = Pyro4.locateNS(host=ns_host, port=ns_port)
-        # Create a proxy for each specific name provided
-        for name in pyro_names_list:
-            try:
-                # Lookup the URI for the specific name
-                uri = ns.lookup(name)
-                # Create a proxy using the specific URI
-                proxy = Pyro4.Proxy(uri)
-                proxy._pyroTimeout = 5 # Timeout for connection and calls
-                backend_proxies.append(proxy)
-                # print(f"[Process {pid}] Successfully created proxy for {name} ({uri})")
-            except Pyro4.errors.NamingError:
-                 print(f"[Process {pid}] WARNING: Pyro name '{name}' not found in Name Server. Skipping proxy creation.", file=sys.stderr)
-            except Exception as e:
-                print(f"[Process {pid}] ERROR creating proxy for name {name} using NS lookup: {e}", file=sys.stderr)
-                local_error_count += 1 # Count as error if we can't create the initial proxy
-
+        if ns_host and ns_port:
+            ns = Pyro4.locateNS(host=ns_host, port=ns_port)
+        else:
+            ns = Pyro4.locateNS()
+        load_balancer = Pyro4.Proxy(ns.lookup(DEFAULT_PYRO_LOADBALANCER))
+        load_balancer._pyroTimeout = 10  # Timeout for proxy calls
     except Pyro4.errors.NamingError:
-         print(f"[Process {pid}] ERROR locating Name Server at start. Cannot create proxies.", file=sys.stderr)
-         local_error_count += 1
-         results_queue.put((local_request_count, local_error_count))
-         return
+        print(f"Worker ERROR: LoadBalancer '{DEFAULT_PYRO_LOADBALANCER}' not found. Make sure it is running.", file=sys.stderr)
+        results_queue.put((0, 1))
+        return
     except Exception as e:
-         print(f"[Process {pid}] ERROR during initial proxy setup: {e}", file=sys.stderr)
-         local_error_count += 1
-         results_queue.put((local_request_count, local_error_count))
-         return
-
-    if not backend_proxies:
-        print(f"[Process {pid}] ERROR: No valid backend proxies created from names: {pyro_names_list}. Exiting worker.", file=sys.stderr)
-        results_queue.put((local_request_count, local_error_count))
+        print(f"Worker ERROR connecting to the LoadBalancer for testing: {e}", file=sys.stderr)
+        results_queue.put((0, 1))
         return
 
-    # Round Robin iterator to pick the next proxy
-    proxy_iterator = itertools.cycle(backend_proxies)
-
-    while time.time() < end_time:
+    start_time = time.time()
+    while time.time() - start_time < duration:
         try:
-            # 1. Select the next proxy using Round Robin
-            server_proxy = next(proxy_iterator)
-
-            # 2. Make the RPC call through the selected proxy
-            if request_type == 'add_insult':
+            if mode == 'add_insult':
                 data = random.choice(INSULTS_TO_ADD) + str(random.randint(1, 10000))
-                server_proxy.add_insult(data)
-            elif request_type == 'filter_service':
+                load_balancer.add_insult(data)
+                requests_sent+=1
+            elif mode == 'filter_text':
                 data = random.choice(TEXTS_TO_FILTER)
-                server_proxy.filter_service(data)
-            local_request_count += 1
+                load_balancer.filter_service(data)
+                requests_sent+=1
+        except Pyro4.errors.CommunicationError as e:
+            print(f"Worker ERROR: Communication error with the LoadBalancer: {e}", file=sys.stderr)
+            errors += 1
         except Exception as e:
-            # print(f"[Process {pid}] Error during {request_type} call to {server_proxy._pyroUri}: {e}", file=sys.stderr) # Too verbose
-            local_error_count += 1
-            if isinstance(e, (Pyro4.errors.CommunicationError, Pyro4.errors.NamingError)):
-                 print(f"[Process {pid}] Pyro error detected during call to {server_proxy._pyroUri}. It might be down.", file=sys.stderr)
-                 # Do not break the loop, the RR iterator will move to the next proxy.
+            print(f"Worker ERROR during the call: {e}", file=sys.stderr)
+            errors += 1
+    results_queue.put((requests_sent, errors))
 
-    # Send local results to the queue
-    results_queue.put((local_request_count, local_error_count))
+def get_total_processed_count(mode, ns_host, ns_port):
+    try:
+        if ns_host and ns_port:
+            ns = Pyro4.locateNS(host=ns_host, port=ns_port)
+        else:
+            ns = Pyro4.locateNS()
+        load_balancer = Pyro4.Proxy(ns.lookup(DEFAULT_PYRO_LOADBALANCER))
+        load_balancer._pyroTimeout = 5 # Timeout for statistic call
+        if mode == 'add_insult':
+            return load_balancer.get_processed_count_service()
+        elif mode == 'filter_text':
+            return load_balancer.get_processed_count_filter()
+        else:
+            return -1
+    except Pyro4.errors.NamingError:
+        print(f"ERROR: LoadBalancer '{DEFAULT_PYRO_LOADBALANCER}' not found. Make sure it is running.", file=sys.stderr)
+        return -1
+    except Exception as e:
+        print(f"ERROR: Unable to get processed requests from the LoadBalancer: {e}", file=sys.stderr)
+        return -1
 
-
-# --- Main Test Function ---
-def run_stress_test(mode, duration, concurrency, num_instances, ns_host=None, ns_port=None):
-
-    if mode == "filter_text":
-        pyro_name_prefix = DEFAULT_PYRO_FILTER_PREFIX
-    elif mode == "add_insult":
-        pyro_name_prefix = DEFAULT_PYRO_SERVICE_PREFIX
-    else:
-        print(f"Error: Mode unrecognized '{mode}'.", file=sys.stderr)
-        return
-
-    # Generate the list of expected Pyro names based on the prefix and number of instances
-    pyro_names_to_test = [f"{pyro_name_prefix}.{i}" for i in range(1, num_instances + 1)]
-
-    print(f"Starting Pyro stress test with mode '{mode}'...")
-    print(f"Target Pyro names (expecting {num_instances} instances): {pyro_names_to_test}")
+def run_stress_test(mode, duration, concurrency, ns_host, ns_port):
+    print(f"Starting Pyro stress test for '{mode}' with {concurrency} processes for {duration} seconds.")
+    print(f"Load Balancer name: {DEFAULT_PYRO_LOADBALANCER}")
     print(f"Duration: {duration} seconds")
     print(f"Concurrency: {concurrency} processes")
-    if ns_host:
-         print(f"Name Server: {ns_host}:{ns_port}")
-    else:
-         print("Name Server: Auto-locating")
     print("-" * 30)
-
-    # Select the request type based on the mode
-    request_type = None
-    if mode == 'add_insult':
-        request_type = 'add_insult'
-    elif mode == 'filter_text':
-        request_type = 'filter_service' # Correct method on the filter
 
     results_queue = Queue()
     processes = []
-    start_time = time.time()
-    end_time = start_time + duration
 
-    # Create and start the worker processes
-    # Pass the complete list of expected Pyro names to EACH worker
+    start_test_time = time.time()
+    # Start worker processes
+    print("Starting worker processes...")
     for _ in range(concurrency):
-        process = Process(target=worker_request, args=(pyro_names_to_test, request_type, results_queue, end_time, ns_host, ns_port))
-        processes.append(process)
-        process.start()
+        p = Process(target=worker_request, args=(duration, results_queue, ns_host, ns_port, mode))
+        processes.append(p)
+        p.start()
 
     # Wait for all processes to finish
     print("Waiting for processes to finish...")
-    for process in processes:
-        process.join()
+    for p in processes:
+        p.join()
 
-    # Collect local results from the workers
+    end_test_time = time.time()
+    actual_duration = end_test_time - start_test_time
+
     total_client_requests_sent = 0
-    total_client_errors = 0
+    total_error_count = 0
     while not results_queue.empty():
-        local_req, local_err = results_queue.get()
-        total_client_requests_sent += local_req
-        total_client_errors += local_err
+        requests_sent, errors = results_queue.get()
+        total_client_requests_sent += requests_sent
+        total_error_count += errors
 
-    actual_duration = time.time() - start_time
-
-    print("-" * 30)
-    print("Pyro Stress Test finalized")
-    print(f"Total time: {actual_duration:.2f} seconds")
+    print("\n--- Test Results ---")
+    print(f"Pyro Stress Test Finished")
+    print(f"Actual test duration: {actual_duration:.2f} seconds")
     print(f"Total client requests sent: {total_client_requests_sent}")
-    print(f"Total client errors: {total_client_errors}")
+    print(f"Total client errors: {total_error_count}")
 
-    # --- Code to get the total processed count from ALL backend instances ---
-    total_server_processed_count = 0
-    successful_backend_count = 0
-
-    print(f"Summing processed counts from {num_instances} expected backend names...")
-    try:
-        # Locate the Name Server for metric collection
-        ns = Pyro4.locateNS(host=ns_host, port=ns_port)
-        # Iterate through the list of expected names
-        for name in pyro_names_to_test:
-            try:
-                # Lookup the URI for the specific name and create a proxy to get the counter
-                uri = ns.lookup(name)
-                backend_proxy = Pyro4.Proxy(uri)
-                backend_proxy._pyroTimeout = 5 # Timeout for the call
-                count = backend_proxy.get_processed_count()
-                total_server_processed_count += count
-                successful_backend_count += 1
-                # print(f"  Count from {name} ({uri}): {count}")
-            except Pyro4.errors.NamingError:
-                print(f"  WARNING: Backend instance '{name}' not found in Name Server for metric collection. Skipping count.", file=sys.stderr)
-            except Exception as e:
-                print(f"  ERROR obtaining processed count from '{name}': {e}", file=sys.stderr)
-                # If a backend fails to get the counter, we don't include its count.
-                pass # Continue trying with others
-
-    except Pyro4.errors.NamingError:
-        print("ERROR: Could not locate Pyro Name Server for final metric collection. Make sure it's running.", file=sys.stderr)
-        total_server_processed_count = -1
-    except Exception as e:
-        print(f"ERROR during final metric collection: {e}", file=sys.stderr)
-        total_server_processed_count = -1
-
-
-    if successful_backend_count > 0:
-         print(f"Total server processed petitions (summed from {successful_backend_count}/{num_instances} instances): {total_server_processed_count}")
-    elif num_instances > 0: # If we expected instances but didn't find any
-         print(f"ERROR: Could not connect to any of the {num_instances} expected backend instances to get processed count.", file=sys.stderr)
-         total_server_processed_count = -1
-
-
-    # --- End of code to get the total ---
-
-    print("-" * 30)
+    server_processed_count = get_total_processed_count(mode, ns_host, ns_port)
+    if server_processed_count >= 0: # Validate the server processed count
+        print(f"Total server processed requests: {server_processed_count}")
+    else:
+        print("Server performance: N/A (unable to retrieve total processed requests count)")
 
     if actual_duration > 0:
         client_throughput = total_client_requests_sent / actual_duration
-        print(f"Client Throughput (petitions/second): {client_throughput:.2f}")
+        print(f"Client throughput (requests/second): {client_throughput:.2f}")
 
-        if total_server_processed_count >= 0: # Only calculate if total was successfully obtained
-             server_throughput = total_server_processed_count / actual_duration
-             print(f"Server Throughput (petitions/second): {server_throughput:.2f}")
-        else:
-            print("Server Throughput: N/A (could not get total processed count)")
+        if server_processed_count >= 0:
+             server_throughput = server_processed_count / actual_duration
+             print(f"Server throughput (requests/second): {server_throughput:.2f}")
     else:
-        print("Throughput: N/A (duration too short)")
+        print("Performance: N/A (duration too short)")
 
     print("-" * 30)
     return None
 
 # --- Argument Handling and Execution ---
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Stress Test Script (Multiprocessing) for Pyro Services with Client-Side LB by Name")
+    parser = argparse.ArgumentParser(description="Script de prova d'estrès (Multiprocessament) per a serveis Pyro amb LoadBalancer")
     parser.add_argument("mode", choices=['add_insult', 'filter_text'],
-                        help="The functionality to test ('add_insult' or 'filter_text')")
+                        help="La funcionalitat a provar ('add_insult' o 'filter_text')")
     parser.add_argument("-d", "--duration", type=int, default=DEFAULT_DURATION,
-                        help=f"Test duration in seconds (default: {DEFAULT_DURATION})")
+                        help=f"Durada de la prova en segons (per defecte: {DEFAULT_DURATION})")
     parser.add_argument("-c", "--concurrency", type=int, default=DEFAULT_CONCURRENCY,
-                        help=f"Number of concurrent processes (default: {DEFAULT_CONCURRENCY})")
-    parser.add_argument("-n", "--num-instances", type=int, required=True, choices=[1, 2, 3],
-                        help="Number of backend service instances being tested (1, 2, or 3)")
-    parser.add_argument("--ns-host", type=str, default=None, help="Name Server host (default: locate via broadcast)")
-    parser.add_argument("--ns-port", type=int, default=None, help="Name Server port (default: locate via broadcast)")
+                        help=f"Nombre de processos concurrents (per defecte: {DEFAULT_CONCURRENCY})")
+    parser.add_argument("--ns-host", type=str, default=None, help="Host del Name Server (per defecte: localitzar via broadcast)")
+    parser.add_argument("--ns-port", type=int, default=None, help="Port del Name Server (per defecte: localitzar via broadcast)")
 
 
     args = parser.parse_args()
 
-    run_stress_test(args.mode, args.duration, args.concurrency, args.num_instances, args.ns_host, args.ns_port)
+    run_stress_test(args.mode, args.duration, args.concurrency, args.ns_host, args.ns_port)

@@ -39,7 +39,7 @@ class LoadBalancer:
                 service_proxy = self.insult_proxies[self.service_rr]
                 self.service_rr = (self.service_rr + 1) % len(self.insult_proxies)
             service_proxy.add_insult(insult)
-            print(f"Insult added: {insult} to {service_proxy._pyroUri}")
+            # print(f"Insult added: {insult} to {service_proxy._pyroUri}")
         except Exception as e:
             print(f"ERROR: Exception during adding insult: {e}", file=sys.stderr)
 
@@ -49,7 +49,7 @@ class LoadBalancer:
                 filter_proxy = self.filter_proxies[self.filter_rr]
                 self.filter_rr = (self.filter_rr + 1) % len(self.filter_proxies)
             result = filter_proxy.filter_service(text) # Call to the real InsultFilter method
-            print("Filtered text:", result)
+            # print("Filtered text:", result)
             return result
         except Exception as e:
             return f"ERROR: Exception during filtering: {e}"
@@ -96,20 +96,24 @@ class LoadBalancer:
         print("WARNING: No filter services available for get_censored_texts_balanced.", file=sys.stderr)
         return None
 
-    def get_processed_count(self):
+    def get_processed_count_filter(self):
+        total_count = 0
+        for proxy in self.filter_proxies:
+            try:
+                count = proxy.get_processed_count()
+                total_count += count
+            except Exception as e:
+                print(f"ERROR in load balancer (get_processed_count_filter): {e}", file=sys.stderr)
+        return total_count
+
+    def get_processed_count_service(self):
         total_count = 0
         for proxy in self.insult_proxies:
             try:
                 count = proxy.get_processed_count()
                 total_count += count
             except Exception as e:
-                print(f"ERROR in load balancer (get_load_balancer_processed_count): {e}", file=sys.stderr)
-        for proxy in self.filter_proxies:
-            try:
-                count = proxy.get_processed_count()
-                total_count += count
-            except Exception as e:
-                print(f"ERROR in load balancer (get_load_balancer_processed_count): {e}", file=sys.stderr)
+                print(f"ERROR in load balancer (get_processed_count_service): {e}", file=sys.stderr)
         return total_count
 
     def notify_subscribers(self, insult):
@@ -127,12 +131,15 @@ class LoadBalancer:
 
 def main():
     parser = argparse.ArgumentParser(description="Pyro Load Balancer")
-    parser.add_argument("-ns", "--names-service", nargs='+', required=True,
+    parser.add_argument("-ns", "--names-service", nargs='+', default=[],
                         help="List of InsultService pyro names separated by spaces (e.g., pyro.service.1 pyro.service.2)")
-    parser.add_argument("-nf", "--names-filter", nargs='+', required=True,
+    parser.add_argument("-nf", "--names-filter", nargs='+', default=[],
                         help="List of InsultFilter pyro names separated by spaces (e.g., pyro.filter.1 pyro.filter.2)")
 
     args = parser.parse_args()
+    if not args.names_service and not args.names_filter:
+        print("Error: At least one service name must be provided for either filter or service.", file=sys.stderr)
+        sys.exit(1)
     load_balancer_pyro_name = "pyro.loadbalancer"
     try:
         daemon = Pyro4.Daemon()
