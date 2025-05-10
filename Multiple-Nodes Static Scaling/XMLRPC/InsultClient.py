@@ -2,6 +2,8 @@ import random
 import xmlrpc.client
 from time import sleep
 import multiprocessing
+import sys
+import argparse
 
 insults_text = [
     "ets tonto i estas boig",
@@ -14,44 +16,60 @@ insults_text = [
     "ets bastant idiota"
 ]
 
-serviceURL = "http://localhost:8000"
-subscriberURL = "http://localhost:8001/RPC2"
-filterURL = "http://localhost:8010/RPC2"
-
-def add_insults(s):
+def add_insults(lb_proxy):
     insults = ["tonto", "lleig", "boig", "idiota", "estúpid", "inútil", "desastre", "fracassat", "covard", "mentider"]
     for insult in insults:
-        print(s.add_insult(insult))
+        try:
+            print(f"Adding insult '{insult}' via LoadBalancer...")
+            lb_proxy.add_insult(insult)
+        except Exception as e:
+            print(f"Error adding insult via LoadBalancer: {e}", file=sys.stderr)
 
 
 def send_text():
-    s = xmlrpc.client.ServerProxy(filterURL)
+    s = xmlrpc.client.ServerProxy(load_balancer_url, allow_none=True)
     while True:
         try:
             i = random.randint(0, len(insults_text) - 1)
-            print(f"Sent text {insults_text[i]}, has been filtered and now says: {s.filter(insults_text[i])}")
+            text_to_send = insults_text[i]
+            filtered_text = s.filter(text_to_send)
+            print(f"Sending text '{text_to_send}' to filter... the result is: {filtered_text}")
             sleep(2)
         except Exception as e:
-            print(f"Error in send_text: {e}")
-
+            print(f"Error in send_text: {e}", file=sys.stderr)
+            sleep(5)
 
 def broadcast():
-    s = xmlrpc.client.ServerProxy(serviceURL)
+    s = xmlrpc.client.ServerProxy(load_balancer_url, allow_none=True)
     while True:
         try:
             insult = s.insult_me()
             s.notify_subscribers(insult)
-            print("Sent petition to insult subscribers.")
             sleep(5)
         except Exception as e:
-            print(f"Error in broadcast: {e}")
+            print(f"Error en broadcast: {e}", file=sys.stderr)
+            sleep(5)
 
 
-hostService = xmlrpc.client.ServerProxy(serviceURL)
-hostFilter = xmlrpc.client.ServerProxy(filterURL)
-hostService.add_subscriber(subscriberURL)
-add_insults(hostService)
-add_insults(hostFilter)
+parser = argparse.ArgumentParser(description="XML-RPC InsultClient")
+parser.add_argument("-lb_port", "--loadbalancer-port", type=int, required=True, help="Port to bind the load balancer to")
+parser.add_argument("-sb_port", "--subscriber_port", type=int, required=True, help="Port to bind the subscriber to")
+
+args = parser.parse_args()
+
+load_balancer_url = f"http://localhost:{args.loadbalancer_port}/RPC2"
+subscriberURL = f"http://localhost:{args.subscriber_port}/RPC2"
+
+# Create LoadBalancer proxy
+load_balancer_proxy = xmlrpc.client.ServerProxy(load_balancer_url, allow_none=True)
+
+try:
+    print(load_balancer_proxy.add_subscriber(subscriberURL))
+except Exception as e:
+    print(f"Error on registering subscriber with LoadBalancer: {e}", file=sys.stderr)
+    sys.exit(1)
+
+add_insults(load_balancer_proxy)
 
 process_broadcast = multiprocessing.Process(target=broadcast)
 process_send_text = multiprocessing.Process(target=send_text)
@@ -59,34 +77,33 @@ process_send_text = multiprocessing.Process(target=send_text)
 process_broadcast.start()
 process_send_text.start()
 
-while True:
-    try:
-        print(
-            "Press K to stop the services, press I to read the current insult list or press T to read the texts received")
-        while True:
-            t = input()
-            if t == "I":
-                try:
-                    print("Insult list:", hostService.get_insults())
-                except Exception as e:
-                    print(f"Communication error: {e}.")
-            elif t == "T":
-                try:
-                    print("Censored texts:", hostFilter.get_results())
-                except Exception as e:
-                    print(f"Communication error: {e}.")
-            elif t == "K":
-                print("Stopping services...")
-                process_broadcast.terminate()
-                process_send_text.terminate()
-                process_broadcast.join()
-                process_send_text.join()
-                break
-            else:
-                print("Unknown command.")
-    except KeyboardInterrupt:
-        print("Interrupted by user, stopping...")
-        process_broadcast.terminate()
-        process_send_text.terminate()
-        process_broadcast.join()
-        process_send_text.join()
+try:
+    print(
+        "Press K to stop the services, press I to read the current insult list or press T to read the texts received")
+    while True:
+        t = input()
+        if t == "I":
+            try:
+                print("Insult list:", load_balancer_proxy.get_insults())
+            except Exception as e:
+                print(f"Communication error: {e}.")
+        elif t == "T":
+            try:
+                print("Censored texts:", load_balancer_proxy.get_results())
+            except Exception as e:
+                print(f"Communication error: {e}.")
+        elif t == "K":
+            print("Stopping services...")
+            process_broadcast.terminate()
+            process_send_text.terminate()
+            process_broadcast.join()
+            process_send_text.join()
+            break
+        else:
+            print("Unknown command.")
+except KeyboardInterrupt:
+    print("Interrupted by user, stopping...")
+    process_broadcast.terminate()
+    process_send_text.terminate()
+    process_broadcast.join()
+    process_send_text.join()

@@ -81,7 +81,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--redis-host", default="localhost", help="Redis host")
     parser.add_argument("--redis-port", type=int, default=6379, help="Redis port")
-    parser.add_argument("--instance-id", type=int, default=1, help="Service instance ID", required=True)
+    parser.add_argument("-id", "--instance-id", type=int, default=1, help="Service instance ID", required=True)
     args = parser.parse_args()
 
     print("Starting InsultService...")

@@ -139,6 +139,7 @@ def main():
     args = parser.parse_args()
     if not args.names_service and not args.names_filter:
         print("Error: At least one service name must be provided for either filter or service.", file=sys.stderr)
+        print("Usage: python LoadBalancer.py -ns <service_names> -nf <filter_names>", file=sys.stderr)
         sys.exit(1)
     load_balancer_pyro_name = "pyro.loadbalancer"
     try:

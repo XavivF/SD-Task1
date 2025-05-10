@@ -1,6 +1,6 @@
 from xmlrpc.server import SimpleXMLRPCRequestHandler
 from xmlrpc.server import SimpleXMLRPCServer
-
+import argparse
 
 class RequestHandler(SimpleXMLRPCRequestHandler):
     rpc_paths = ("/RPC2",)
@@ -14,10 +14,16 @@ class Subscriber:
         print(f"New insult received: {insult}")
         return "Insult received."
 
-server = SimpleXMLRPCServer(('localhost', 8001), requestHandler=RequestHandler, allow_none=True)
+
+parser = argparse.ArgumentParser(description="XML-RPC InsultSubscriber")
+parser.add_argument("-sb_port", "--subscriber-port", type=int, required=True, help="Port to bind the subscriber to")
+
+args = parser.parse_args()
+
+server = SimpleXMLRPCServer(('localhost', args.subscriber_port), requestHandler=RequestHandler, allow_none=True)
 subscriber_service = Subscriber()
 
 server.register_function(subscriber_service.notify, "notify")
 
-print(f"Subscriber running on port 8001...")
+print(f"Subscriber running on port {args.subscriber_port}...")
 server.serve_forever()
