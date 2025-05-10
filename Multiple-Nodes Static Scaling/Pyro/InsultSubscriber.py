@@ -6,7 +6,7 @@ class InsultSubscriber:
         print(f"Received broadcast insult: {insult}")
 
 def main():
-    insult_service = Pyro4.Proxy("PYRONAME:pyro.service")  # Connect to the insult service
+    insult_service = Pyro4.Proxy("PYRONAME:pyro.loadbalancer")  # Connect to the insult service
     subscriber = InsultSubscriber()
     daemon = Pyro4.Daemon()
     uri = daemon.register(subscriber)

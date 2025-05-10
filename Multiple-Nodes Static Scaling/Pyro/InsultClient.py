@@ -6,8 +6,7 @@ import multiprocessing
 
 class InsultClient:
     def __init__(self):
-        self.insult_service = Pyro4.Proxy("PYRONAME:pyro.service")
-        self.insult_filter = Pyro4.Proxy("PYRONAME:pyro.filter")
+        self.load_balancer = Pyro4.Proxy("PYRONAME:pyro.loadbalancer")
         self.insults = ["beneit", "capsigrany", "ganàpia", "nyicris",
                     "gamarús", "bocamoll", "murri", "dropo", "bleda", "xitxarel·lo"]
         self.llista_insults = [
@@ -28,7 +27,7 @@ class InsultClient:
             time.sleep(5)
             try:
                 text = random.choice(self.llista_insults)
-                censored_text = self.insult_filter.filter_service(text)
+                censored_text = self.load_balancer.filter_service(text)
                 print(f"Text sent: {text}")
                 print(f"Censored text: {censored_text}")
             except Pyro4.errors.CommunicationError:
@@ -38,16 +37,16 @@ class InsultClient:
 
     def send_insults(self):
         for insult in self.insults:
-            self.insult_service.add_insult(insult)
-            self.insult_filter.add_insult(insult)
+            self.load_balancer.add_insult(insult)
+            self.load_balancer.add_insult(insult)
             print("Insult sent to server:", insult)
 
     def broadcast(self):
         while True:
             time.sleep(5)
             try:
-                insult = self.insult_service.insult_me()
-                self.insult_service.notify_subscribers(insult)
+                insult = self.load_balancer.insult_me()
+                self.load_balancer.notify_subscribers(insult)
                 print(f"Sent insult {insult} to subscribers.")
             except Pyro4.errors.CommunicationError:
                 pass
@@ -73,12 +72,12 @@ def main():
             t = input()
             if t == "I":
                 try:
-                    print("Insult list:", client.insult_service.get_insults())
+                    print("Insult list:", client.load_balancer.get_insults())
                 except Pyro4.errors.CommunicationError as e:
                     print(f"Communication error: {e}.")
             elif t == "T":
                 try:
-                    print("Censored texts:", client.insult_filter.get_censored_texts())
+                    print("Censored texts:", client.load_balancer.get_censored_texts())
                 except Pyro4.errors.CommunicationError as e:
                     print(f"Communication error: {e}.")
             elif t == "K":
