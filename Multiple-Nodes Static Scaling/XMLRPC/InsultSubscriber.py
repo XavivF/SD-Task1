@@ -26,4 +26,7 @@ subscriber_service = Subscriber()
 server.register_function(subscriber_service.notify, "notify")
 
 print(f"Subscriber running on port {args.subscriber_port}...")
-server.serve_forever()
+try:
+    server.serve_forever()
+except KeyboardInterrupt:
+    print("\nShutting down InsultSubscriber...")

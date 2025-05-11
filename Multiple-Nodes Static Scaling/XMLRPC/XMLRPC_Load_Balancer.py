@@ -98,6 +98,18 @@ class XmlrpcLoadBalancer:
             raise Exception(f"Errors adding subscribers on {errors} services.")
         return "Subscriber added to all services."
 
+    def notify_subscribers(self, insult):
+        print(f"LB: Forwarding notify_subscribers for insult '{insult}' to all insult services.")
+        errors = 0
+        for proxy in self.service_proxies:
+            try:
+                proxy.notify_subscribers(insult)  # Each InsultService notifies its subscribers
+            except Exception as e:
+                errors += 1
+                print(f"LB: Error notifying subscribers via {proxy._pyroUri}: {e}", file=sys.stderr)
+        if errors > 0:
+            print(f"LB: {errors} errors occurred during notify_subscribers_balanced.", file=sys.stderr)
+
     # --- Method to get the total request count ---
     def get_processed_count_filter(self):
         total_count = 0
