@@ -8,7 +8,7 @@ import time
 class InsultFilter:
     def __init__(self, filter_counter, redis_host, redis_port):
         self.insultSet = "INSULTS"
-        self.censoredTextsList = "RESULTS"
+        self.censoredTextsSet = "RESULTS"
         self.workQueue = "Work_queue"
         self.counter = filter_counter # Counter for the number of times filtered text
         self.client = redis.Redis(host=redis_host, port=redis_port, db=0, decode_responses=True)
@@ -33,7 +33,7 @@ class InsultFilter:
         return censored_text.strip() # Remove trailing space
 
     def get_censored_texts(self):
-        results = self.client.lrange(self.censoredTextsList, 0, -1)
+        results = self.client.smembers(self.censoredTextsSet)
         return f"Censored texts:{results}"
 
     def filter_service(self):
@@ -48,7 +48,7 @@ class InsultFilter:
                         self.counter.value += 1
                     filtered_text = self.filter_text(text)
                     # print(f"InsultFilter Worker: Filtered text: {filtered_text} (Counter: {self.counter.value})")
-                    self.client.rpush(self.censoredTextsList, filtered_text)
+                    self.client.sadd(self.censoredTextsSet, filtered_text)
         except KeyboardInterrupt:
             print("\nInsultFilter Service: Stopping filter_service...")
             exit(1)
@@ -106,7 +106,7 @@ if __name__ == "__main__":
 
     print("InsultFilter: Clearing initial Redis keys (INSULTS, RESULTS, Work_queue)...")
     insult_filter.client.delete(insult_filter.insultSet)
-    insult_filter.client.delete(insult_filter.censoredTextsList)
+    insult_filter.client.delete(insult_filter.censoredTextsSet)
     insult_filter.client.delete(insult_filter.workQueue)
     print("Redis keys cleared.")
 

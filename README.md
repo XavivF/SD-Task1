@@ -134,6 +134,125 @@ you change the number of backend instances.
 - Each component should ideally be run in its own terminal window for clarity and easy management.
 ### Redis Implementation
 
+#### 1. Start the Redis Docker Container
+```bash
+docker start redis
+```
+#### 2. Start the Pyro4 Name Server
+
+The Redis implementation uses Pyro4 only for retrieving performance statistics from the service
+and filter instances. You need to run the Pyro4 Name Server.
+```bash
+python3 -m Pyro4.naming
+```
+Keep this terminal open.
+
+#### 3. Start Insult Service Instances
+
+Run one or more instances of the InsultService.py. These instances will consume insults from a 
+Redis queue (Insults_queue) and publish random insults to a Redis channel (Insults_broadcast). 
+Each instance needs a unique --instance-id for Pyro4 registration.
+
+```bash
+python3 InsultService.py --redis-host localhost --redis-port 6379 --instance-id <id_service_1>
+# Example:
+# python3 InsultService.py --redis-host localhost --redis-port 6379 --instance-id 1
+
+python3 InsultService.py --redis-host localhost --redis-port 6379 --instance-id <id_service_2>
+# Example:
+# python3 InsultService.py --redis-host localhost --redis-port 6379 --instance-id 2
+
+# Add more instances as needed for scaling tests
+# python3 InsultService.py --redis-host localhost --redis-port 6379 --instance-id 3
+```
+
+Keep these terminals open. You should see messages indicating they are starting listener 
+and notifier processes.
+
+#### 4. Start the Insult Filter Instances
+
+Run one or more instances of the InsultFilter.py. These instances will consume texts from a 
+Redis queue (Work_queue) and store filtered results in a Redis list (RESULTS). Each instance 
+also needs a unique --instance-id for Pyro4 registration. The only required argument is the
+--instance-id or -id.
+
+```bash
+python3 InsultFilter.py --redis-host localhost --redis-port 6379 --instance-id <id_filter_1>
+# Example:
+# python3 InsultFilter.py --redis-host localhost --redis-port 6379 --instance-id 11
+
+python3 InsultFilter.py --redis-host localhost --redis-port 6379 --instance-id <id_filter_2>
+# Example:
+# python3 InsultFilter.py --redis-host localhost --redis-port 6379 --instance-id 12
+
+# Add more instances as needed for scaling tests
+# python3 InsultFilter.py --redis-host localhost --redis-port 6379 --instance-id 13
+```
+Keep these terminals open. You should see messages indicating they are starting filtering processes.
+
+#### 5. Start the Subscriber (Not needed if running the StressTest.py)
+
+The Subscriber (InsultSubscriber.py) listens directly to the Redis publish/subscribe 
+channel (Insults_broadcast) for random insults broadcasted by the Insult Service instances.
+
+```bash
+python3 InsultSubscriber.py
+```
+
+Keep this terminal open to see received insults.
+
+#### 6. Run the Client (Not recommended if running the StressTest.py)
+
+The InsultClient.py in the Redis implementation acts as a simple producer, pushing initial 
+insults to the Insults_queue and then periodically pushing texts to the Work_queue. It 
+interacts directly with Redis, not with the service/filter instances.
+It is not recommended to run the client if you are running the StressTest.py, as the counter of
+the processed insults will be incorrect because of the initial added insults.
+
+```bash
+python3 InsultClient.py
+```
+
+This client will start pushing messages to Redis. You can observe the service and filter 
+instances picking up these tasks.
+
+#### 7. Run the Stress Test (Performance Analysis)
+
+The StressTest.py script for Redis is used for performance analysis. It uses multiprocessing 
+to push a high volume of messages directly to the relevant Redis queues (Insults_queue or 
+Work_queue).
+
+```bash
+python3 StressTest.py <mode> [options]
+```
+Arguments:
+
+* mode: Choose either add_insult to test the Insult Service's processing of the Insults_queue
+or filter_text to test the Insult Filter's processing of the Work_queue.
+* -d, --duration: Test duration in seconds (default: 10).
+* -c, --concurrency: Number of concurrent client processes that push messages to Redis 
+(default: 10).
+* --host: Redis server host (default: localhost).
+* --port: Redis server port (default: 6379).
+* --insult-queue: Name of the Redis queue for publishing insults (default: Insults_queue).
+* --work-queue: Name of the Redis list/queue for filtering texts (default: Work_queue).
+* -n, --num-service-instances: Required. The total number of backend service/filter instances 
+(InsultService.py or InsultFilter.py, depending on the mode) that are running. The stress test 
+script will try to get stats from redis.insultservice.1 up to redis.insultservice.n for 
+add_insult mode, or redis.insultfilter.1 up to redis.insultfilter.n for filter_text.
+
+Example:
+```bash
+python3 StressTest.py add_insult -d 30 -c 50 -n 2
+```
+
+**Important Notes:**
+* Ensure the Redis server and Pyro4 Name Server are running before starting any service/filter 
+instances.
+* Ensure all service and filter instances are running and have registered with the Pyro4 Name
+Server before running the StressTest.py.
+* Each component should ideally be run in its own terminal window for clarity and easy management.
+
 ### RabbitMQ Implementation
 
 ### Pyro Implementation
