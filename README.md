@@ -390,6 +390,128 @@ python3 StressTest.py add_insult -d 10 -c 5 -n 2
 
 ### Pyro Implementation
 
+#### 1. Start the Pyro4 Name Server
 
+The Pyro4 Name Server is essential for the system to work, as components find each other through it.
+
+```bash
+python3 -m Pyro4.naming
+```
+
+Keep this terminal open.
+
+#### 2. Start Insult Service Instances
+
+Run one or more instances of the InsultService.py. Each instance is exposed as a Pyro4 object and registers
+itself with the Name Server using a unique name based on its instance ID (e.g., pyro.service.1). Each 
+instance also needs a specific port to bind its Pyro4 daemon to.
+
+```bash
+python3 InsultService.py --port <port_service_1> --instance-id <id_service_1>
+# Example:
+# python3 InsultService.py --port 8001 --instance-id 1
+
+python3 InsultService.py --port <port_service_2> --instance-id <id_service_2>
+# Example:
+# python3 InsultService.py --port 8002 --instance-id 2
+
+# Add more instances as needed for scaling tests
+# python3 InsultService.py --port 8003 --instance-id 3
+```
+
+Keep these terminals open.
+
+#### 3. Start Insult Filter Instances
+
+Similarly, start one or more instances of the InsultFilter.py. Each registers with the Name Server using 
+a unique name based on its instance ID (e.g., pyro.filter.1). Each also needs a specific port.
+
+```bash
+python3 InsultFilter.py --port <port_filter_1> --instance-id <id_filter_1>
+# Example:
+# python3 InsultFilter.py --port 8011 --instance-id 11
+
+python3 InsultFilter.py --port <port_filter_2> --instance-id <id_filter_2>
+# Example:
+# python3 InsultFilter.py --port 8012 --instance-id 12
+
+# Add more instances as needed for scaling tests
+# python3 InsultFilter.py --port 8013 --instance-id 13
+```
+
+Keep these terminals open.
+
+#### 4. Start the Load Balancer
+
+The Load Balancer (LoadBalancer.py) acts as the central entry point for clients. It needs to know the Pyro4
+names of all running Insult Service and Insult Filter instances so it can create proxies to them. The Load
+Balancer also registers itself with the Name Server as pyro.loadbalancer.
+
+```bash
+python3 LoadBalancer.py --names-service <service_name_1> <service_name_2> ... --names-filter <filter_name_1> <filter_name_2> ...
+```
+
+**Example**:
+
+```bash
+python3 LoadBalancer.py --names-service pyro.service.1 pyro.service.2 --names-filter pyro.filter.1 pyro.filter.2
+```
+
+Keep this terminal open.
+
+#### 5. Start the Subscriber
+
+The Subscriber (InsultSubscriber.py) exposes itself as a Pyro4 object and registers with the Name Server. 
+It then connects to the Load Balancer (pyro.loadbalancer) and tells it to subscribe this subscriber to 
+broadcasts.
+
+```bash
+python3 InsultSubscriber.py
+```
+
+Keep this terminal open to see received insults.
+
+#### 6. Run the Client (Demonstration and Manual Testing)
+
+The InsultClient.py is a basic client to interact with the system. It connects to the Load Balancer 
+(pyro.loadbalancer) and sends requests (add insults, filter text) and fetches results. It also starts 
+background processes for broadcasting and sending text.
+
+```bash
+python3 InsultClient.py
+```
+
+Once running, you can use the interactive commands in the client's terminal:
+* I: Get the list of insults (via LB).
+* T: Get the list of censored texts (via LB).
+* K: Stop the client's background processes and exit.
+
+#### 7. Run the Stress Test (Performance Analysis)
+
+The StressTest.py script is used for performance analysis. It sends a high volume of requests to the Load 
+Balancer (pyro.loadbalancer) using multiple processes. It also retrieves the total processed counts from 
+the Load Balancer.
+
+```bash
+python3 StressTest.py <mode> [options]
+```
+
+**Arguments**:
+* mode: Choose either add_insult to test the Insult Service (via LB) or filter_text to test the Insult 
+Filter (via LB).
+* -d, --duration: Test duration in seconds (default: 10).
+* -c, --concurrency: Number of concurrent client processes to run (default: 10).
+* --ns-host: Host of the Pyro Name Server (optional, default: locate via broadcast).
+* --ns-port: Port of the Pyro Name Server (optional, default: locate via broadcast).
+
+**Example**:
+```bash
+python3 StressTest.py add_insult -d 15 -c 5
+```
+
+**Important Notes:**
+* Ensure the Pyro4 Name Server is running before starting any other components.
+* Ensure all service and filter instances are running and have registered with the Name Server before 
+starting the Load Balancer.
 
 ## Multiple-Nodes Dynamic Scaling
