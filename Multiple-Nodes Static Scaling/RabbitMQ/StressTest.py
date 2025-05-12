@@ -16,7 +16,7 @@ DEFAULT_TEXT_QUEUE = 'text_queue'           # Default RabbitMQ queue for filteri
 DEFAULT_PYRO_NAME_SERVICE = 'rabbit.service'        # Default Pyro name for statistics
 DEFAULT_PYRO_NAME_FILTER = 'rabbit.filter'          # Default Pyro name for filter service
 DEFAULT_DURATION = 10                       # Default test duration in seconds
-DEFAULT_CONCURRENCY = 10                    # Default number of concurrent processes/clients
+DEFAULT_CONCURRENCY = 3                    # Default number of concurrent processes/clients
 
 # --- Test Data ---
 INSULTS_TO_ADD = ["tonto", "lleig", "boig", "idiota", "estúpid", "inútil", "desastre", "fracassat", "covard", "mentider",

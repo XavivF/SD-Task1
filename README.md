@@ -216,6 +216,11 @@ python3 InsultClient.py
 This client will start pushing messages to Redis. You can observe the service and filter 
 instances picking up these tasks.
 
+Once running, you can use the interactive commands in the client's terminal:
+* I: Get the list of insults from the service instances (via Pyro4).
+* T: Get the list of censored texts from the filter instances (via Pyro4).
+* K: Stop the client's background processes and exit.
+
 #### 7. Run the Stress Test (Performance Analysis)
 
 The StressTest.py script for Redis is used for performance analysis. It uses multiprocessing 
@@ -225,7 +230,8 @@ Work_queue).
 ```bash
 python3 StressTest.py <mode> [options]
 ```
-Arguments:
+
+**Arguments**:
 
 * mode: Choose either add_insult to test the Insult Service's processing of the Insults_queue
 or filter_text to test the Insult Filter's processing of the Work_queue.
@@ -255,6 +261,135 @@ Server before running the StressTest.py.
 
 ### RabbitMQ Implementation
 
+#### 1. Start the RabbitMQ Docker Container
+
+```bash
+docker start rabbitmq
+```
+
+#### 2. Start the Pyro4 Name Server
+
+The RabbitMQ implementation uses Pyro4 only for retrieving performance statistics from the service and 
+filter instances. You need to run the Pyro4 Name Server.
+
+```bash
+python3 -m Pyro4.naming
+```
+
+#### 3. Start Insult Service Instances
+
+Run one or more instances of the InsultService.py. These instances will consume insults from a RabbitMQ 
+fanout exchange (insults_exchange) and publish random insults to another RabbitMQ fanout exchange 
+(Insults_broadcast). Each instance needs a unique --instance-id for Pyro4 registration.
+```bash
+python3 InsultService.py --instance-id <id_service_1>
+# Example:
+# python3 InsultService.py --instance-id 1
+
+python3 InsultService.py --instance-id <id_service_2>
+# Example:
+# python3 InsultService.py --instance-id 2
+
+# Add more instances as needed for scaling tests (e.g., for 3 nodes)
+# python3 InsultService.py --instance-id 3
+```
+
+Keep these terminals open. You should see messages indicating they are connecting to RabbitMQ and starting 
+processes.
+
+#### 4. Start Insult Filter Instances
+
+Run one or more instances of the InsultFilter.py. These instances will consume texts from a RabbitMQ queue 
+(text_queue) and insults from the insults_exchange. Each instance also needs a unique --instance-id for 
+Pyro4 registration.
+
+```bash
+python3 InsultFilter.py --instance-id <id_filter_1>
+# Example:
+# python3 InsultFilter.py --instance-id 11
+
+python3 InsultFilter.py --instance-id <id_filter_2>
+# Example:
+# python3 InsultFilter.py --instance-id 12
+
+# Add more instances as needed for scaling tests (e.g., for 3 nodes)
+# python3 InsultFilter.py --instance-id 13
+```
+Keep these terminals open. You should see messages indicating they are connecting to RabbitMQ and starting processes.
+
+#### 5. Start the Subscriber (Not needed if running the StressTest.py)
+
+The Subscriber (InsultSubscriber.py) listens directly to the RabbitMQ publish/subscribe exchange 
+(Insults_broadcast) for random insults broadcasted by the Insult Service instances.
+
+```bash
+python3 InsultSubscriber.py
+```
+Keep this terminal open to see received insults.
+
+#### 6. Run the Client (Demonstration - Producer + Stats Viewer)
+
+The InsultClient.py in the RabbitMQ implementation acts as a producer, pushing initial insults and texts 
+to the relevant RabbitMQ queues/exchanges. It also connects to the running service and filter instances 
+via Pyro4 to retrieve lists of insults and censored texts.
+
+You need to provide the number of running instances using the -n or --num-instances argument, as the client 
+uses this to connect to the correct Pyro4 names (e.g., rabbit.service.1, rabbit.service.2, etc.).
+
+```bash
+python3 InsultClient.py -n <number_of_instances>
+```
+
+**Example**:
+```bash
+python3 InsultClient.py -n 2
+```
+
+Note: The client currently assumes the same number of service and filter instances and connects to Pyro 
+names rabbit.service.1 to rabbit.service.n and rabbit.filter.1 to rabbit.filter.n
+
+Once running, you can use the interactive commands in the client's terminal:
+* I: Get the list of insults from the service instances (via Pyro4).
+* T: Get the list of censored texts from the filter instances (via Pyro4).
+* K: Stop the client's background processes and exit.
+
+#### 7. Run the Stress Test (Performance Analysis)
+
+The StressTest.py script for RabbitMQ is used for performance analysis. It uses multiprocessing to push a 
+high volume of messages directly to the relevant RabbitMQ queues/exchanges (insults_exchange or text_queue). 
+After the test duration, it connects to the Pyro4 Name Server to retrieve the total processed counts from 
+the running service/filter instances specified by their IDs.
+
+```bash
+python3 StressTest.py <mode> [options]
+```
+
+**Arguments**:
+* mode: Choose either add_insult to test the Insult Service's processing of the insults_exchange or 
+filter_service to test the Insult Filter's processing of the text_queue.
+* -d, --duration: Test duration in seconds (default: 10).
+* -c, --concurrency: Number of concurrent client processes that push messages to RabbitMQ (default: 10).
+* --host: RabbitMQ server host (default: localhost).
+* --insult-exchange: Name of the RabbitMQ exchange for publishing insults (default: insults_exchange).
+* --work-queue: Name of the RabbitMQ queue for filtering texts (default: text_queue).
+* -n, --num-instances: Required. The total number of backend service/filter instances (InsultService.py or 
+InsultFilter.py, depending on the mode) that are running. The stress test script will try to get stats from 
+Pyro4 names rabbit.service.1 up to rabbit.service.n for add_insult mode, or rabbit.filter.1 up to 
+rabbit.filter.n for filter_service mode. Ensure the --instance-id you used when starting the backend 
+instances corresponds to this range (starting from 1).
+
+**Example**:
+```bash
+python3 StressTest.py add_insult -d 10 -c 5 -n 2
+```
+
+**Important Notes**:
+* Ensure the RabbitMQ server and Pyro4 Name Server are running before starting any service/filter instances.
+* Ensure all service and filter instances are running and have registered with the Pyro4 Name Server before running the InsultClient.py or StressTest.py if you want to collect statistics via Pyro4.
+* Each component should ideally be run in its own terminal window for clarity and easy management.
+
 ### Pyro Implementation
+
+
 
 ## Multiple-Nodes Dynamic Scaling
