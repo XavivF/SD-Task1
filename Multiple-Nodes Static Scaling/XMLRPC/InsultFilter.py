@@ -21,7 +21,7 @@ port = args.port
 
 class InsultFilter:
     def __init__(self, req_counter):
-        self.insults = []   # received insults
+        self.insults = ["tonto", "lleig", "boig", "idiota", "estúpid", "inútil", "desastre", "fracassat", "covard", "mentider"]
         self.results = []   # censored text results
         self.counter = req_counter
 
