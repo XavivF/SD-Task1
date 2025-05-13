@@ -23,7 +23,6 @@ class InsultService:
             # print(f"Insult already exists: {insult}")
 
     def get_insults(self):
-        print(f"Insult list: {self.insults_List}")
         return self.insults_List
 
     def insult_me(self):

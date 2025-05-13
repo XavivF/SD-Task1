@@ -64,7 +64,9 @@ subscriberURL = f"http://localhost:{args.subscriber_port}/RPC2"
 load_balancer_proxy = xmlrpc.client.ServerProxy(load_balancer_url, allow_none=True)
 
 try:
+    print("provaawdadwas")
     print(load_balancer_proxy.add_subscriber(subscriberURL))
+    print("provaawdadwas despres")
 except Exception as e:
     print(f"Error on registering subscriber with LoadBalancer: {e}", file=sys.stderr)
     sys.exit(1)

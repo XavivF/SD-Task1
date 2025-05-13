@@ -7,7 +7,7 @@ import time
 import multiprocessing
 
 class InsultClient:
-    def __init__(self, num_instances):
+    def __init__(self, n_instances_service, n_instances_filter):
         self.connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
         self.channel = self.connection.channel()
         self.text_queue = "text_queue"
@@ -16,24 +16,28 @@ class InsultClient:
         self.channel.queue_declare(queue=self.text_queue)
         self.insult_service_proxies = []
         self.insult_filter_proxies = []
-        for j in range(1, num_instances+1):
-            try:
-                service_proxy = Pyro4.Proxy(f"PYRONAME:rabbit.service.{j}")
-                self.insult_service_proxies.append(service_proxy)
-                print(f"Connected to Pyro service instance: rabbit.service.{j}")
-            except Pyro4.errors.NamingError:
-                print(f"Warning: Pyro service instance 'rabbit.service.{j}' not found.")
-            except Exception as e:
-                print(f"Error connecting to Pyro service instance 'rabbit.service.{j}': {e}")
 
-            try:
-                filter_proxy = Pyro4.Proxy(f"PYRONAME:rabbit.filter.{j}")
-                self.insult_filter_proxies.append(filter_proxy)
-                print(f"Connected to Pyro filter instance: rabbit.filter.{j}")
-            except Pyro4.errors.NamingError:
-                print(f"Warning: Pyro filter instance 'rabbit.filter.{j}' not found.")
-            except Exception as e:
-                print(f"Error connecting to Pyro filter instance 'rabbit.filter.{j}': {e}")
+        if n_instances_service > 0:
+            for j in range(1, n_instances_service+1):
+                try:
+                    service_proxy = Pyro4.Proxy(f"PYRONAME:rabbit.service.{j}")
+                    self.insult_service_proxies.append(service_proxy)
+                    print(f"Connected to Pyro service instance: rabbit.service.{j}")
+                except Pyro4.errors.NamingError:
+                    print(f"Warning: Pyro service instance 'rabbit.service.{j}' not found.")
+                except Exception as e:
+                    print(f"Error connecting to Pyro service instance 'rabbit.service.{j}': {e}")
+
+        if n_instances_filter > 0:
+            for j in range(1, n_instances_filter+1):
+                try:
+                    filter_proxy = Pyro4.Proxy(f"PYRONAME:rabbit.filter.{j}")
+                    self.insult_filter_proxies.append(filter_proxy)
+                    print(f"Connected to Pyro filter instance: rabbit.filter.{j}")
+                except Pyro4.errors.NamingError:
+                    print(f"Warning: Pyro filter instance 'rabbit.filter.{j}' not found.")
+                except Exception as e:
+                    print(f"Error connecting to Pyro filter instance 'rabbit.filter.{j}': {e}")
 
         if not self.insult_service_proxies and not self.insult_filter_proxies:
             print("Error: No Pyro service or filter instances found. Make sure they are running and registered.")
@@ -76,9 +80,10 @@ class InsultClient:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-n", "--num-instances", type=int, default=1, help="Number of instances running", required=True)
+    parser.add_argument("-ns", "--num-instances-service", type=int, default=0, help="Number of Insult Service instances running", required=True)
+    parser.add_argument("-nf", "--num-instances-filter", type=int, default=0, help="Number of Insult Filter instances running", required=True)
     args = parser.parse_args()
-    client = InsultClient(args.num_instances)
+    client = InsultClient(args.num_instances_service, args.num_instances_filter)
     client.send_insults()  # Send new insults
     time.sleep(1)
 
@@ -93,14 +98,14 @@ if __name__ == "__main__":
             t = input()
             if t == "I":
                 try:
-                    for i in range(args.num_instances):
+                    for i in range(args.num_instances_service):
                         print(f"Insult list from instance {i+1}:",
                               client.insult_service_proxies[i].get_insults())
                 except Pyro4.errors.CommunicationError as e:
                     print(f"Communication error: {e}.")
             elif t == "T":
                 try:
-                    for i in range(args.num_instances):
+                    for i in range(args.num_instances_filter):
                         print(f"Insult filter censored texts from instance {i+1}:",
                               client.insult_filter_proxies[i].get_results())
                 except Pyro4.errors.CommunicationError as e:

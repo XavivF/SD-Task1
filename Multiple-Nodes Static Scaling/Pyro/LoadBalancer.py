@@ -79,7 +79,10 @@ class LoadBalancer:
     def get_insults(self):
         if self.insult_proxies:
             try:
-                return self.insult_proxies[0].get_insults()
+                response = []
+                for proxy in self.insult_proxies:
+                    response.extend(proxy.get_insults())
+                return response
             except Exception as e:
                 print(f"ERROR in load balancer (get_insults_balanced): {e}", file=sys.stderr)
                 return None
@@ -89,7 +92,10 @@ class LoadBalancer:
     def get_censored_texts(self):
         if self.filter_proxies:
             try:
-                return self.filter_proxies[0].get_censored_texts()
+                response = []
+                for proxy in self.filter_proxies:
+                    response.extend(proxy.get_censored_texts())
+                return response
             except Exception as e:
                 print(f"ERROR in load balancer (get_censored_texts_balanced): {e}", file=sys.stderr)
                 return None

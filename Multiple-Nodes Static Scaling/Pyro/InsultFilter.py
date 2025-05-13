@@ -8,7 +8,7 @@ import sys
 class InsultFilter:
     def __init__(self):
         self.censored_Texts = []
-        self.insults_List = []
+        self.insults_List = ["beneit", "capsigrany", "ganàpia", "nyicris", "gamarús", "bocamoll", "murri", "dropo", "bleda", "xitxarel·lo"]
         self.processed_requests_count = 0
         self._lock = threading.Lock() # Lock to securely access the counter
 
