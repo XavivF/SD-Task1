@@ -6,11 +6,154 @@ Scaling distributed Systems using direct and indirect communication middleware
 ## Single-Node 
 ### XMLRPC Implementation
 
+#### 1. Start Insult Service Instances
+
+This section provides instructions to set up and run the XML-RPC based implementation of the Insult Service and Insult Filter, including the client demonstration and the stress test.
+
+### Running the Services
+
+You need to start each service and the subscriber in a separate terminal or command prompt window. Ensure you are in the directory containing the Python files.
+
+#### 1. Start the Insult Service:
+```
+python3 InsultService.py
+```
+
+This will start the service listening on `localhost:8000`. You should see a "Server is running..." message.
+
+#### 2. Start the Insult Filter:
+
+````
+python3 InsultFilter.py
+````
+This will start the filter service listening on `localhost:8010`. You should see a "Server is running..." message.
+
+#### 3. Start the Insult Subscriber:
+```` 
+python3 InsultSubscriber.py
+````
+This will start the subscriber listening on `localhost:8001`. You should see a "Subscriber running on port 8001..." message.
+
+**Important:** Ensure all three services/subscriber are running before starting any client or test script.
+
+### 4. Run the Client (Demonstration and Testing)
+
+Open another terminal window and run the client script. This client interacts with the services, adds initial insults, sends text to be filtered, and triggers the broadcast mechanism.
+````
+python3 InsultClient.py
+````
+The client will:
+* Add the subscriber (`InsultSubscriber.py`) to the service.
+* Add a predefined list of insults to both the Service and the Filter.
+* Periodically send random texts to the Filter service.
+* Periodically request an insult from the Service and notify subscribers.
+* Allow interactive commands:
+    * Press `I` and Enter to see the current list of insults held by the Insult Service.
+    * Press `T` and Enter to see the list of filtered texts held by the Insult Filter.
+    * Press `K` and Enter to terminate the client and the spawned processes.
+
+Observe the output in the terminals where the services and subscriber are running to see the interactions (e.g., insults being added, texts being filtered, subscriber receiving notifications).
+
+### 5. Run the Stress Test
+
+The StressTest.py script is used to evaluate the performance of specific functionalities under load. Open a new terminal window to run it.
+````
+python3 StressTest.py <mode> [options]
+````
+**Arguments:**
+
+* `<mode>`: Specifies which functionality to test. Choose either add_insult or filter_text.
+
+**Options:**
+
+* -d, --duration: Test duration in seconds (default: 10).
+* -c, --concurrency: Number of concurrent client processes to run (default: 10).
+
+**Example:**
+
+````
+python3 StressTest.py add_insult -d 30 -c 20
+````
+
+The script will output the total time, total requests made by clients, total requests processed by the server (obtained via a method call), total errors, and calculated throughputs.
+
+**Note:** The services (InsultService.py, InsultFilter.py) must be running before you execute the StressTest.py. The InsultSubscriber.py is not directly involved in the current stress test modes, but it doesn't hurt to have it running.
 ### Redis Implementation
 
 ### RabbitMQ Implementation
 
 ### Pyro Implementation
+
+
+#### 1. Start the Name Server
+
+Pyro requires a Name Server to discover the services. You must start this first in a dedicated terminal window.
+````
+python3 -m Pyro4.naming
+````
+You should see output indicating the Name Server has started. Keep this terminal open.
+
+#### 2. Start the Insult Service:
+
+Open separate terminal windows for each service and the subscriber. Ensure the Pyro Name Server is running before starting these.
+````
+python3 InsultService.py
+````
+
+#### 3. Start the Filter Service:
+````
+python3 InsultFilter.py
+````
+This script will connect to the Name Server and register the service under the name pyro.filter.
+
+#### 4. Start the Insult Subscriber:
+````
+python3 InsultSubscriber.py
+````
+
+**Important:** Ensure the Name Server, the Insult Service, the Insult Filter, and the Insult Subscriber are all running before proceeding to the client or stress test.
+
+#### 5. Run the Client (Demonstration and Testing)
+
+Open another terminal window to run the client script. This client interacts with the services, adds initial insults, sends text to be filtered, and helps demonstrate the broadcast mechanism.
+````
+python3 InsultClient.py
+````
+The client will:
+* Automatically find the services via the Name Server.
+* Add a predefined list of insults to both the Service and the Filter.
+* Start separate processes for periodically sending random texts to the Filter service and for triggering the broadcast of a random insult from the Service.
+* Allow interactive commands:
+    * Press `I` and Enter to see the current list of insults held by the Insult Service.
+    * Press `T` and Enter to see the list of filtered texts held by the Insult Filter.
+    * Press `K` and Enter to terminate the client and its spawned processes.
+
+Observe the output in the terminals where the services and subscriber are running to see the interactions (e.g., insults being added, texts being filtered, subscriber receiving notifications).
+
+#### 6. Running the Stress Test
+
+The StressTest.py script is designed to evaluate the performance of specific functionalities under load. Open a new terminal window to run it.
+````
+python3 StressTest.py <mode> [options]
+````
+**Arguments:**
+
+* `<mode>`: Specifies which functionality to test. Choose either add_insult or filter_text.
+
+**Options:**
+
+* -d DURATION, --duration DURATION: The duration of the test in seconds (default is 10).
+* -c CONCURRENCY, --concurrency CONCURRENCY: The number of concurrent client processes to run (default is 10).
+
+**Example:**
+
+````
+python3 StressTest.py -c 30 filter_text
+````
+The script will output the total time, total requests made by clients, total requests processed by the server (obtained via a method call), total errors, and calculated throughputs.
+
+**Note:** The Pyro Name Server and the relevant service (InsultService.py for add_insult mode, InsultFilter.py for filter_text mode) must be running before you execute StressTest.py. The InsultSubscriber.py is not directly involved in the current stress test modes, but it doesn't hurt to have it running.
+
 
 ## Multiple-Nodes Static Scaling
 ### XMLRPC Implementation
@@ -112,10 +255,10 @@ concurrency, and the lb_url.
 python3 StressTest.py <mode> [options]
 ```
 **Arguments:**
-- mode: Choose either add_insult to test the Insult Service (via LB) or filter_text to test the Insult Filter (via LB).
-- -d, --duration: Test duration in seconds (default: 10).
-- -c, --concurrency: Number of concurrent client processes to run (default: 10).
-- -u, --lb_url: URL of the XML-RPC Load Balancer (default: http://localhost:9000/RPC2).
+* mode: Choose either add_insult to test the Insult Service (via LB) or filter_text to test the Insult Filter (via LB).
+* -d, --duration: Test duration in seconds (default: 10).
+* -c, --concurrency: Number of concurrent client processes to run (default: 10).
+* -u, --lb_url: URL of the XML-RPC Load Balancer (default: http://localhost:9000/RPC2).
 
 **Example:**
 ```bash
@@ -201,7 +344,7 @@ python3 InsultSubscriber.py
 
 Keep this terminal open to see received insults.
 
-#### 6. Run the Client (Not recommended if running the StressTest.py)
+#### 6. Run the Client (Demonstration and Manual Testing)
 
 The InsultClient.py in the Redis implementation acts as a simple producer, pushing initial 
 insults to the Insults_queue and then periodically pushing texts to the Work_queue. It 
@@ -333,16 +476,16 @@ The InsultClient.py in the RabbitMQ implementation acts as a producer, pushing i
 to the relevant RabbitMQ queues/exchanges. It also connects to the running service and filter instances 
 via Pyro4 to retrieve lists of insults and censored texts.
 
-You need to provide the number of running instances using the -n or --num-instances argument, as the client 
+You need to provide the number of running service instances using the -ns or --num-instances-service and running filter instances using the -nf or --num-instances-filter argument, as the client 
 uses this to connect to the correct Pyro4 names (e.g., rabbit.service.1, rabbit.service.2, etc.).
 
 ```bash
-python3 InsultClient.py -n <number_of_instances>
+python3 InsultClient.py -ns <number_of_service_instances> -nf <number_of_filter_instances>
 ```
 
 **Example**:
 ```bash
-python3 InsultClient.py -n 2
+python3 InsultClient.py -ns 2 -nf 1
 ```
 
 Note: The client currently assumes the same number of service and filter instances and connects to Pyro 

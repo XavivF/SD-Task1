@@ -59,34 +59,33 @@ process_send_text = multiprocessing.Process(target=send_text)
 process_broadcast.start()
 process_send_text.start()
 
-while True:
-    try:
-        print(
-            "Press K to stop the services, press I to read the current insult list or press T to read the texts received")
-        while True:
-            t = input()
-            if t == "I":
-                try:
-                    print("Insult list:", hostService.get_insults())
-                except Exception as e:
-                    print(f"Communication error: {e}.")
-            elif t == "T":
-                try:
-                    print("Censored texts:", hostFilter.get_results())
-                except Exception as e:
-                    print(f"Communication error: {e}.")
-            elif t == "K":
-                print("Stopping services...")
-                process_broadcast.terminate()
-                process_send_text.terminate()
-                process_broadcast.join()
-                process_send_text.join()
-                break
-            else:
-                print("Unknown command.")
-    except KeyboardInterrupt:
-        print("Interrupted by user, stopping...")
-        process_broadcast.terminate()
-        process_send_text.terminate()
-        process_broadcast.join()
-        process_send_text.join()
+try:
+    print(
+        "Press K to stop the services, press I to read the current insult list or press T to read the texts received")
+    while True:
+        t = input()
+        if t == "I":
+            try:
+                print("Insult list:", hostService.get_insults())
+            except Exception as e:
+                print(f"Communication error: {e}.")
+        elif t == "T":
+            try:
+                print("Censored texts:", hostFilter.get_results())
+            except Exception as e:
+                print(f"Communication error: {e}.")
+        elif t == "K":
+            print("Stopping services...")
+            process_broadcast.terminate()
+            process_send_text.terminate()
+            process_broadcast.join()
+            process_send_text.join()
+            break
+        else:
+            print("Unknown command.")
+except KeyboardInterrupt:
+    print("Interrupted by user, stopping...")
+    process_broadcast.terminate()
+    process_send_text.terminate()
+    process_broadcast.join()
+    process_send_text.join()
