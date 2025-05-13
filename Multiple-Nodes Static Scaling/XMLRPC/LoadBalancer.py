@@ -57,7 +57,10 @@ class XmlrpcLoadBalancer:
     def get_insults(self):
         if self.num_services > 0:
             try:
-                return self.service_proxies[0].get_insults()
+                response = []
+                for proxy in self.service_proxies:
+                    response.extend(proxy.get_insults())
+                return response
             except Exception as e:
                 print(f"ERROR obtaining results from service backend: {e}", file=sys.stderr)
                 raise
@@ -76,7 +79,10 @@ class XmlrpcLoadBalancer:
     def get_results(self):
         if self.num_filters > 0:
             try:
-                return self.filter_proxies[0].get_results()
+                response = []
+                for proxy in self.filter_proxies:
+                    response.extend(proxy.get_results())
+                return response
             except Exception as e:
                 print(f"ERROR obtaining results from filter backend: {e}", file=sys.stderr)
                 raise

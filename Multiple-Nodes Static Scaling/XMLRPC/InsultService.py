@@ -54,7 +54,6 @@ class Insults:
         return f"Insult added by instance on port {port}: {insult}"
 
     def get_insults(self):
-        print(f"Instance on port {port} returning {len(self.insults)} insults.")
         return self.insults
 
     def insult_me(self):
