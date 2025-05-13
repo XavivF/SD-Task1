@@ -265,8 +265,8 @@ python3 StressTest.py <mode> [options]
 
 **Options:**
 
-* -d DURATION, --duration DURATION: The duration of the test in seconds (default is 10).
-* -c CONCURRENCY, --concurrency CONCURRENCY: The number of concurrent client processes to run (default is 10).
+* -d, --duration: The duration of the test in seconds (default is 10).
+* -c, --concurrency: The number of concurrent client processes to run (default is 10).
 
 **Example:**
 
