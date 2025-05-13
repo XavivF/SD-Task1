@@ -80,10 +80,133 @@ The script will output the total time, total requests made by clients, total req
 **Note:** The services (InsultService.py, InsultFilter.py) must be running before you execute the StressTest.py. The InsultSubscriber.py is not directly involved in the current stress test modes, but it doesn't hurt to have it running.
 ### Redis Implementation
 
+#### 1. Start the Redis Docker Container
+```bash
+docker start redis
+```
+#### 2. Start the Pyro4 Name Server
+
+The Redis implementation uses Pyro4 only for retrieving performance statistics from the service
+and filter instances. You need to run the Pyro4 Name Server.
+```bash
+python3 -m Pyro4.naming
+```
+Keep this terminal open.
+
+#### 3. Start the Insult Service
+
+```bash
+    python3 InsultService.py
+```
+
+### 4. Start the Insult Filter
+
+```bash
+    python3 InsultFilter.py
+```
+
+Leave these services running while you execute the stress tests. They will handle incoming 
+requests via Redis and expose their processed counts via Pyro.
+
+#### 5. Start the Subscriber
+
+```bash
+    python3 InsultSubscriber.py
+```
+
+Keep this terminal open to see received insults.
+
+#### 6. Run the Client (Demonstration and Manual Testing)
+
+```
+python3 InsultClient.py
+```
+
+#### 7. Run the Stress Test (Performance Analysis)
+The `StressTest.py` script accepts the following command-line arguments:
+
+* `mode`: **Required**. The functionality to test. Choose either `add_insult` or `filter_text`.
+  * `add_insult`: Tests adding insults to the system (interacts with `InsultService` via Redis Pub/Sub).
+  * `filter_text`: Tests filtering texts (interacts with `InsultFilter` via Redis Lists/Queues).
+* `--host`: Redis server host (default: `localhost`).
+* `--port`: Redis server port (default: `6379`).
+* `--insult-channel`: Name of the Redis channel for publishing insults (default: `Insults_channel`). Used with `mode=add_insult`.
+* `--work-queue`: Name of the Redis list/queue for filtering texts (default: `Work_queue`). Used with `mode=filter_text`.
+* `-d`, `--duration`: Test duration in seconds (default: `10`).
+* `-c`, `--concurrency`: Number of concurrent client processes simulating load (default: `10`).
+
+
+This test simulates multiple clients publishing insults to the Redis channel, which the `InsultService` listens to.
+
+```bash
+python3 StressTest.py add_insult -d <duration_in_seconds> -c <number_of_processes>
+```
+
 ### RabbitMQ Implementation
 
-### Pyro Implementation
+#### 1. Start the RabbitMQ Docker Container
 
+```bash
+docker start rabbitmq
+```
+
+#### 2. Start the Pyro4 Name Server
+The RabbitMQ implementation uses Pyro4 only for retrieving performance statistics from the service
+and filter instances. You need to run the Pyro4 Name Server.
+```bash
+python3 -m Pyro4.naming
+```
+
+#### 3. Start the Insult Service
+
+```bash
+python3 InsultService.py
+```
+
+#### 4. Start the Insult Filter
+
+```bash
+python3 InsultFilter.py
+```
+
+#### 5. Start the Subscriber
+
+```bash
+python3 InsultSubscriber.py
+```
+
+#### 6. Run the Client (Demonstration and Manual Testing)
+
+```bash
+python3 InsultClient.py
+```
+
+#### 7. Run the Stress Test (Performance Analysis)
+The `StressTest.py` script for RabbitMQ is used for performance analysis. It uses multiprocessing to push a
+high volume of messages directly to the relevant RabbitMQ queues/exchanges (insults_exchange or text_queue).
+
+The `StressTest.py` script accepts the following command-line arguments:
+
+* `mode`: **Required**. The functionality to test. For RabbitMQ, choose either `add_insult` or `filter_service`.
+    * `add_insult`: Tests adding insults to the system (interacts with `InsultService` via the `insults_exchange` fanout exchange).
+    * `filter_service`: Tests filtering texts (interacts with `InsultFilter` via the `text_queue` work queue).
+* `--host`: RabbitMQ server host (default: `localhost`).
+* `--insult-exchange`: Name of the RabbitMQ exchange for adding insults (default: `insults_exchange`). Used with `mode=add_insult`.
+* `--work-queue`: Name of the RabbitMQ queue for filtering texts (default: `text_queue`). Used with `mode=filter_service`.
+* `--pyro-name`: The Pyro name of the service whose statistics you want to retrieve. Use `rabbit.service` for the Insult Service test and `rabbit.filter` for the Insult Filter test.
+* `-d`, `--duration`: Test duration in seconds (default: `10`).
+* `-c`, `--concurrency`: Number of concurrent client processes simulating load (default: `10`).
+
+```bash
+python3 StressTest.py add_insult --host <rabbitmq_host> --insult-exchange insults_exchange --pyro-name rabbit.service -d <duration_in_seconds> -c <number_of_processes>
+```
+
+Example:
+```bash
+python3 StressTest.py add_insult -d 60 -c 50
+```
+
+### Pyro Implementation
 
 #### 1. Start the Name Server
 
@@ -508,14 +631,14 @@ python3 StressTest.py <mode> [options]
 ```
 
 **Arguments**:
-* mode: Choose either add_insult to test the Insult Service's processing of the insults_exchange or 
-filter_service to test the Insult Filter's processing of the text_queue.
-* -d, --duration: Test duration in seconds (default: 10).
-* -c, --concurrency: Number of concurrent client processes that push messages to RabbitMQ (default: 10).
-* --host: RabbitMQ server host (default: localhost).
-* --insult-exchange: Name of the RabbitMQ exchange for publishing insults (default: insults_exchange).
-* --work-queue: Name of the RabbitMQ queue for filtering texts (default: text_queue).
-* -n, --num-instances: Required. The total number of backend service/filter instances (InsultService.py or 
+* `mode`: Choose either `add_insult` to test the Insult Service's processing of the insults_exchange or 
+`filter_service` to test the Insult Filter's processing of the text_queue.
+* `-d`, `--duration`: Test duration in seconds (default: 10).
+* `-c`, `--concurrency`: Number of concurrent client processes that push messages to RabbitMQ (default: 10).
+* `--host`: RabbitMQ server host (default: localhost).
+* `--insult-exchange`: Name of the RabbitMQ exchange for publishing insults (default: insults_exchange).
+* `--work-queue`: Name of the RabbitMQ queue for filtering texts (default: text_queue).
+* `-n`, `--num-instances`: Required. The total number of backend service/filter instances (InsultService.py or 
 InsultFilter.py, depending on the mode) that are running. The stress test script will try to get stats from 
 Pyro4 names rabbit.service.1 up to rabbit.service.n for add_insult mode, or rabbit.filter.1 up to 
 rabbit.filter.n for filter_service mode. Ensure the --instance-id you used when starting the backend 

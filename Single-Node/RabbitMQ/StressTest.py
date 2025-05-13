@@ -95,13 +95,13 @@ def worker_filter_text(host, queue_name, results_queue, end_time):
             connection.close()
 
 # --- Main Test Function ---
-def run_stress_test(mode, host, insult_queue, work_queue, pyro_name, duration, concurrency):
+def run_stress_test(mode, host, insult_exchange, work_queue, pyro_name, duration, concurrency):
     if (mode == "filter_text") and (pyro_name == "rabbit.service"):
         print(f"Error: The mode '{mode}' is not compatible with the Pyro name '{pyro_name}'.", file=sys.stderr)
         exit (1)
     print(f"Starting stress test (RabbitMQ+Pyro with Multiprocessing) in mode '{mode}'...")
     print(f"RabbitMQ Host: {host}")
-    print(f"Insults Queue: {insult_queue}")
+    print(f"Insults Exchange: {insult_exchange}")
     print(f"Filter Queue: {work_queue}")
     print(f"Pyro Name (Statistics): {pyro_name}")
     print(f"Duration: {duration} seconds")
@@ -111,7 +111,7 @@ def run_stress_test(mode, host, insult_queue, work_queue, pyro_name, duration, c
     # Worker selection (for RabbitMQ message sending)
     if mode == 'add_insult':
         worker_function = worker_add_insult
-        target_queue_name = insult_queue
+        target_queue_name = insult_exchange
     elif mode == 'filter_service':  # Use 'filter_service' to match service logic intent
         worker_function = worker_filter_text  # This worker sends text to the work_queue
         target_queue_name = work_queue
@@ -199,8 +199,8 @@ if __name__ == "__main__":
                         help="The functionality to test ('add_insult' or 'filter_service')")
     parser.add_argument("--host", default=DEFAULT_RABBIT_HOST,
                         help=f"RabbitMQ server host (default: {DEFAULT_RABBIT_HOST})")
-    parser.add_argument("--insult-queue", default=DEFAULT_INSULT_EXCHANGE,
-                        help=f"RabbitMQ queue name for adding insults (default: {DEFAULT_INSULT_EXCHANGE})")
+    parser.add_argument("--insult-exchange", default=DEFAULT_INSULT_EXCHANGE,
+                        help=f"RabbitMQ exchange name for adding insults (default: {DEFAULT_INSULT_EXCHANGE})")
     parser.add_argument("--work-queue", default=DEFAULT_TEXT_QUEUE,
                         help=f"RabbitMQ queue name for filtering texts (default: {DEFAULT_TEXT_QUEUE})")
     parser.add_argument("--pyro-name", default=DEFAULT_PYRO_NAME_SERVICE,
@@ -213,4 +213,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Call the main function with the parsed arguments
-    run_stress_test(args.mode, args.host, args.insult_queue, args.work_queue, args.pyro_name, args.duration,args.concurrency)
+    run_stress_test(args.mode, args.host, args.insult_exchange, args.work_queue, args.pyro_name, args.duration,args.concurrency)
