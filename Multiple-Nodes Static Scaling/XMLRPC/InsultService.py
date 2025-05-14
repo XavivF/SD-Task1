@@ -50,7 +50,7 @@ class Insults:
         with self.counter.get_lock():
             self.counter.value += 1
         self.insults.append(insult)
-        print(f"Instance on port {port} added insult: {insult}. Count: {self.counter.value}")
+        # print(f"Instance on port {port} added insult: {insult}. Count: {self.counter.value}")
         return f"Insult added by instance on port {port}: {insult}"
 
     def get_insults(self):

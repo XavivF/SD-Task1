@@ -187,12 +187,12 @@ high volume of messages directly to the relevant RabbitMQ queues/exchanges (insu
 
 The `StressTest.py` script accepts the following command-line arguments:
 
-* `mode`: **Required**. The functionality to test. For RabbitMQ, choose either `add_insult` or `filter_service`.
+* `mode`: **Required**. The functionality to test. For RabbitMQ, choose either `add_insult` or `filter_text`.
     * `add_insult`: Tests adding insults to the system (interacts with `InsultService` via the `insults_exchange` fanout exchange).
-    * `filter_service`: Tests filtering texts (interacts with `InsultFilter` via the `text_queue` work queue).
+    * `filter_text`: Tests filtering texts (interacts with `InsultFilter` via the `text_queue` work queue).
 * `--host`: RabbitMQ server host (default: `localhost`).
 * `--insult-exchange`: Name of the RabbitMQ exchange for adding insults (default: `insults_exchange`). Used with `mode=add_insult`.
-* `--work-queue`: Name of the RabbitMQ queue for filtering texts (default: `text_queue`). Used with `mode=filter_service`.
+* `--work-queue`: Name of the RabbitMQ queue for filtering texts (default: `text_queue`). Used with `mode=filter_text`.
 * `--pyro-name`: The Pyro name of the service whose statistics you want to retrieve. Use `rabbit.service` for the Insult Service test and `rabbit.filter` for the Insult Filter test.
 * `-d`, `--duration`: Test duration in seconds (default: `10`).
 * `-c`, `--concurrency`: Number of concurrent client processes simulating load (default: `10`).
@@ -392,7 +392,7 @@ python3 StressTest.py add_insult -d 30 -c 50 -u http://localhost:9000/RPC2
 - Ensure all server instances (InsultService.py, InsultFilter.py), the Load Balancer 
 (LoadBalancer.py), and the Subscriber (InsultSubscriber.py) are running before starting
 the InsultClient.py or StressTest.py.
-- For static scaling analysis, you will typically run the StressTest.py with the same 
+- For static scaling anaRlysis, you will typically run the StressTest.py with the same 
 configuration (duration, concurrency, mode) but with the Load Balancer configured to use
 a varying number of backend service/filter instances (e.g., 1, 2, 3 instances). Remember
 to restart the Load Balancer with the correct --service_urls and --filter_urls each time
@@ -632,7 +632,7 @@ python3 StressTest.py <mode> [options]
 
 **Arguments**:
 * `mode`: Choose either `add_insult` to test the Insult Service's processing of the insults_exchange or 
-`filter_service` to test the Insult Filter's processing of the text_queue.
+`filter_text` to test the Insult Filter's processing of the text_queue.
 * `-d`, `--duration`: Test duration in seconds (default: 10).
 * `-c`, `--concurrency`: Number of concurrent client processes that push messages to RabbitMQ (default: 10).
 * `--host`: RabbitMQ server host (default: localhost).
@@ -641,7 +641,7 @@ python3 StressTest.py <mode> [options]
 * `-n`, `--num-instances`: Required. The total number of backend service/filter instances (InsultService.py or 
 InsultFilter.py, depending on the mode) that are running. The stress test script will try to get stats from 
 Pyro4 names rabbit.service.1 up to rabbit.service.n for add_insult mode, or rabbit.filter.1 up to 
-rabbit.filter.n for filter_service mode. Ensure the --instance-id you used when starting the backend 
+rabbit.filter.n for filter_text mode. Ensure the --instance-id you used when starting the backend 
 instances corresponds to this range (starting from 1).
 
 **Example**:

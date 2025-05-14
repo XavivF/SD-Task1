@@ -112,11 +112,11 @@ def run_stress_test(mode, host, insult_exchange, work_queue, pyro_name, duration
     if mode == 'add_insult':
         worker_function = worker_add_insult
         target_queue_name = insult_exchange
-    elif mode == 'filter_service':  # Use 'filter_service' to match service logic intent
+    elif mode == 'filter_text':  # Use 'filter_text' to match service logic intent
         worker_function = worker_filter_text  # This worker sends text to the work_queue
         target_queue_name = work_queue
     else:
-        print(f"Error: Mode '{mode}' unrecognized. Options: 'add_insult', 'filter_service'.", file=sys.stderr)
+        print(f"Error: Mode '{mode}' unrecognized. Options: 'add_insult', 'filter_text'.", file=sys.stderr)
         exit(1)
 
     results_queue = Queue()
@@ -195,8 +195,8 @@ def run_stress_test(mode, host, insult_exchange, work_queue, pyro_name, duration
 # --- Argument Parsing and Execution ---
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Stress Test Script (RabbitMQ+Pyro) for InsultService")
-    parser.add_argument("mode", choices=['add_insult', 'filter_service'],
-                        help="The functionality to test ('add_insult' or 'filter_service')")
+    parser.add_argument("mode", choices=['add_insult', 'filter_text'],
+                        help="The functionality to test ('add_insult' or 'filter_text')")
     parser.add_argument("--host", default=DEFAULT_RABBIT_HOST,
                         help=f"RabbitMQ server host (default: {DEFAULT_RABBIT_HOST})")
     parser.add_argument("--insult-exchange", default=DEFAULT_INSULT_EXCHANGE,

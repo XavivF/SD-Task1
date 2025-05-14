@@ -21,7 +21,7 @@ class Insults:
              self.counter.value += 1
         if insult not in self.insults_list:
             self.insults_list.append(insult)
-        print(f"Insult added: {insult}")
+        # print(f"Insult added: {insult}")
 
     def get_insults(self):
         return f"Insult list: {list(self.insults_list)}"

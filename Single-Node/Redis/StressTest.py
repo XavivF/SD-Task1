@@ -134,7 +134,7 @@ def run_stress_test(mode, host, port, insult_channel, work_queue, duration, conc
         worker_function = worker_filter_text
         target = work_queue
     else:
-        print(f"Error: Mode '{mode}' not recognized.\nOptions: 'add_insult', 'filter_service'.", file=sys.stderr)
+        print(f"Error: Mode '{mode}' not recognized.\nOptions: 'add_insult', 'filter_text'.", file=sys.stderr)
         return
 
     results_queue = Queue()

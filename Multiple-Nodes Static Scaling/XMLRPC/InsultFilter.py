@@ -36,7 +36,7 @@ class InsultFilter:
                 censored_text += word + " "
         if censored_text not in self.results:
             self.results.append(censored_text)
-        print(f"Filtered text: {censored_text}")
+        # print(f"Filtered text: {censored_text}")
         return censored_text
 
     def add_insult(self, insult):

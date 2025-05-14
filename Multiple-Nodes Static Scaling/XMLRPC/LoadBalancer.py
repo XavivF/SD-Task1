@@ -39,7 +39,7 @@ class XmlrpcLoadBalancer:
     def add_insult(self, insult):
         try:
             proxy = self.get_next_service_proxy()
-            print(f"LB: Add insult '{insult}' to service: {proxy._XmlRpcClient__host_port_path}")
+            # print(f"LB: Add insult '{insult}' to service: {proxy._XmlRpcClient__host_port_path}")
             return proxy.add_insult(insult)
         except Exception as e:
             print(f"ERROR on LB add_insult: {e}", file=sys.stderr)
@@ -70,7 +70,7 @@ class XmlrpcLoadBalancer:
     def filter(self, text):
         try:
             proxy = self.get_next_filter_proxy()
-            print(f"LB: Filtering text '{text}' via filter: {proxy._XmlRpcClient__host_port_path}")
+            # print(f"LB: Filtering text '{text}' via filter: {proxy._XmlRpcClient__host_port_path}")
             return proxy.filter(text)
         except Exception as e:
             print(f"ERROR on LB filter: {e}", file=sys.stderr)

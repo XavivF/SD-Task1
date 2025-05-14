@@ -20,7 +20,7 @@ class InsultFilter:
              self.counter.value += 1
         if insult not in self.insults_list:
             self.insults_list.append(insult)
-            print(f"Insult added: {insult}")
+            # print(f"Insult added: {insult}")
 
     def filter(self, text):
         censored_text = ""
@@ -44,7 +44,7 @@ class InsultFilter:
                 self.counter.value += 1
             if filtered_text not in self.censored_texts:
                 self.censored_texts.append(filtered_text)
-            print(f"Censored text: {filtered_text}")
+            # print(f"Censored text: {filtered_text}")
 
         channel.basic_consume(queue=self.text_queue, on_message_callback=callback, auto_ack=True)
         print(f"Waiting for texts to censor at {self.text_queue}...")

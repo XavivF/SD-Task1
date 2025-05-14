@@ -112,8 +112,6 @@ if __name__ == "__main__":
 
     # --- Start background processes for InsultService ---
     print("InsultService: Starting worker processes...")
-    # --- Start background processes for InsultFilter ---
-    print("InsultFilter: Starting worker processes...")
     process_service_notify = Process(target=insults_service.notify_subscribers)
     process_service_listen = Process(target=insults_service.listen)
     process_service_status = Process(target=insults_service.get_status_daemon)
