@@ -153,7 +153,7 @@ if __name__ == "__main__":
                         help="La funcionalitat a provar ('add_insult' o 'filter_text')")
     parser.add_argument("-m", "--messages", type=int, required=True,
                         help=f"Number of messages to send")
-    parser.add_argument("-n", "--num-service-instances", type=int, default=1, required=True,
+    parser.add_argument("-n", "--num-instances", type=int, default=1, required=True,
                         help=f"Number of service instances to retrieve stats from (default: 1)")
     parser.add_argument("--ns-host", type=str, default=None, help="Host del Name Server (per defecte: localitzar via broadcast)")
     parser.add_argument("--ns-port", type=int, default=None, help="Port del Name Server (per defecte: localitzar via broadcast)")
@@ -161,4 +161,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    run_stress_test(args.mode, args.ns_host, args.ns_port, args.messages, args.num_service_instances)
+    run_stress_test(args.mode, args.ns_host, args.ns_port, args.messages, args.num_instances)
