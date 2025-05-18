@@ -92,11 +92,9 @@ if __name__ == "__main__":
     filter_service_instance.client.delete(filter_service_instance.counter_key)
     print("Redis keys cleared.")
 
-    process_listen_insults = Process(target=filter_service_instance.listen_insults)
     process_filter_service = Process(target=filter_service_instance.filter_service)
 
     # Start the worker processes
-    process_listen_insults.start()
     process_filter_service.start()
     try:
         daemon.requestLoop()
@@ -104,9 +102,7 @@ if __name__ == "__main__":
         print("Shutting down...")
     finally:
         print("Terminating worker processes...")
-        process_listen_insults.terminate()
         process_filter_service.terminate()
-        process_listen_insults.join()
         process_filter_service.join()
         daemon.shutdown()
         print("Worker processes finished.")
