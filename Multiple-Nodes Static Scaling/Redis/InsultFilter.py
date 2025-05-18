@@ -1,10 +1,8 @@
 import redis
 import argparse
-import Pyro4
 from multiprocessing import Process
 import time
 
-@Pyro4.behavior(instance_mode="single")
 class InsultFilter:
     def __init__(self, redis_host, redis_port):
         self.insultSet = "INSULTS"
@@ -63,7 +61,6 @@ class InsultFilter:
         except KeyboardInterrupt:
             print("\nInsultFilter Worker: Stopping get_status_daemon...")
 
-    @Pyro4.expose
     def get_processed_count(self):
         count = self.client.get(self.counter_key)
         return int(count) if count else 0
@@ -79,28 +76,6 @@ if __name__ == "__main__":
 
     insult_filter = InsultFilter(args.redis_host, args.redis_port)     # Create the InsultFilter instance
 
-    # --- Set up Pyro server ---
-    print("Starting Pyro InsultFilter for remote access...")
-    try:
-        daemon = Pyro4.Daemon()  # Create the Pyro daemon
-        ns = Pyro4.locateNS()  # Locate the name server
-    except Pyro4.errors.NamingError as e:
-        # You need to have the name server running: python3 -m Pyro4.naming
-        print("Error locating the name server. Make sure it is running.")
-        print("Command: python3 -m Pyro4.naming")
-        exit(1)
-
-    # Register InsultFilter service instance with the daemon and name server
-    # Clients will connect to this name 'redis.insultfilter'
-    filter_name = f"redis.insultfilter.{args.instance_id}"
-    uri = daemon.register(insult_filter)
-    try:
-        ns.register(filter_name, uri)
-        print(f"InsultFilter registered as '{filter_name}' at {uri}")
-    except Pyro4.errors.NamingError as e:
-        print(f"Error registering the service with the name server: {e}")
-        exit(1)
-
     print("InsultFilter: Clearing initial Redis keys (INSULTS, RESULTS, Work_queue)...")
     insult_filter.client.delete(insult_filter.insultSet)
     insult_filter.client.delete(insult_filter.censoredTextsSet)
@@ -111,27 +86,16 @@ if __name__ == "__main__":
     # --- Start background processes for InsultFilter ---
     print("InsultFilter: Starting worker processes...")
     process_filter_service = Process(target=insult_filter.filter_service)
-    process_service_status = Process(target=insult_filter.get_status_daemon)
 
     process_filter_service.start()
-    process_service_status.start()
-
-    print("InsultFilter Pyro daemon started, waiting for remote requests...")
-    print(f"Service '{filter_name}' available.")
-
     try:
-        daemon.requestLoop()
+        insult_filter.get_status_daemon()
     except KeyboardInterrupt:
         print("\nShutting down InsultFilter...")
         print("Terminating worker processes...")
         # Terminate and join worker processes
         process_filter_service.terminate()
-        process_service_status.terminate()
         process_filter_service.join()
-        process_filter_service.terminate()
+        insult_filter.client.close()
         print("InsultFilter worker processes finished.")
-
-        print("Shutting down Pyro daemon...")
-        daemon.shutdown()
-        print("Pyro daemon shut down.")
         print("Exiting InsultFilter main program.")

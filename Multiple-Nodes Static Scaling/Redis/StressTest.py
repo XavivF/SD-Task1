@@ -1,12 +1,10 @@
 import redis
 import time
-import multiprocessing
 from multiprocessing import Process, Queue
 import random
 import argparse
 import sys
 import os
-import Pyro4
 
 # --- Configuration ---
 DEFAULT_REDIS_HOST = 'localhost'
@@ -15,10 +13,6 @@ DEFAULT_INSULT_QUEUE = 'Insults_queue'
 DEFAULT_WORK_QUEUE = 'Work_queue'         # List (queue) where texts to filter are sent
 REDIS_COUNTER = 'COUNTER'
 
-
-# Pyro names for retrieving statistics
-DEFAULT_PYRO_SERVICE_NAME = 'redis.insultservice'
-DEFAULT_PYRO_FILTER_NAME = 'redis.insultfilter'
 
 DEFAULT_CONCURRENCY = 5 # Number of concurrent processes/clients
 
@@ -72,7 +66,7 @@ def worker_add_insult(host, port, queue_name, results_queue, n_msg):
         results_queue.put((local_request_count, local_error_count))
         if redis_client:
             redis_client.close()
-            # print(f"[Procés {pid}] Connexió Redis tancada.") # TODO: Uncomment this line to see the Redis connection close message
+            # print(f"[Procés {pid}] Connexió Redis tancada.")
 
 def worker_filter_text(host, port, queue_name, results_queue, n_msg):
     local_request_count = 0
@@ -112,15 +106,10 @@ def worker_filter_text(host, port, queue_name, results_queue, n_msg):
 
 # --- Main Test Function ---
 def run_stress_test(mode, host, port, insult_queue, work_queue, messages, num_service_instances):
-    if mode == 'add_insult':
-        pyro_name = DEFAULT_PYRO_SERVICE_NAME
-    elif mode == 'filter_text':
-        pyro_name = DEFAULT_PYRO_FILTER_NAME
     print(f"Starting stress test (Redis direct interaction) in mode '{mode}'...")
     print(f"Redis Host: {host}:{port}")
     print(f"Insult Queue (for add_insult mode): {insult_queue}")
     print(f"Filter Queue (for filter_text mode): {work_queue}")
-    print(f"Pyro Name (for stats): {pyro_name}")
     print(f"Number of messages to send: {messages}")
     print("-" * 30)
 
@@ -179,20 +168,8 @@ def run_stress_test(mode, host, port, insult_queue, work_queue, messages, num_se
 
     print("-" * 30)
 
-    # --- Phase 2: Get statistics from the service via Pyro ---
-    total_processed_count = 0
-    # Get stats from the service instances
-    service_instance_name = f"{pyro_name}.{1}"
-    try:
-        server_proxy = Pyro4.Proxy(f"PYRONAME:{service_instance_name}")
-        server_proxy._pyroTimeout = 10
-        total_processed_count = server_proxy.get_processed_count()
-        print(f"Stats retrieved from {service_instance_name}.")
-    except Pyro4.errors.NamingError:
-        print(f"Warning: Instance '{service_instance_name}' not found.", file=sys.stderr)
-    except Exception as e:
-        print(f"Error retrieving stats from {service_instance_name}: {e}", file=sys.stderr)
-
+    # --- Phase 2: Get statistics from the service ---
+    total_processed_count = int(redis_client.get(REDIS_COUNTER))
 
     print("Stress Test (Redis with Multiprocessing) Finished")
     print(f"Total time sending requests: {actual_duration_client:.2f} seconds")
@@ -209,7 +186,7 @@ def run_stress_test(mode, host, port, insult_queue, work_queue, messages, num_se
     else:
         print("Client sending throughput: N/A (duration too short)")
 
-    print("\n--- Statistics (Processed Counts via Pyro) ---")
+    print("\n--- Statistics (Processed Counts) ---")
     if total_processed_count != 0:
         # The service count reflects insults added via its listener
         print(f"Server processed count: {total_processed_count}")
@@ -217,7 +194,7 @@ def run_stress_test(mode, host, port, insult_queue, work_queue, messages, num_se
             service_throughput = total_processed_count / actual_duration_server
             print(f"Server processing throughput (requests/second): {service_throughput:.2f}")
     else:
-        print("Could not retrieve service statistics via Pyro.")
+        print("Could not retrieve service statistics")
     print("\n--- Statistics (Per server throughput) ---")
     if total_processed_count != 0:
         if actual_duration_server > 0:
@@ -231,7 +208,7 @@ def run_stress_test(mode, host, port, insult_queue, work_queue, messages, num_se
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
-        description="Stress Test Script (Multiprocessing) for Insult Services via Redis (Load) and Pyro (Stats)")
+        description="Stress Test Script (Multiprocessing) for Insult Services via Redis")
     parser.add_argument("mode", choices=['add_insult', 'filter_text'],
                         help="The functionality to test ('add_insult' pushes to Redis queue; 'filter_text' pushes to Redis queue)")
     parser.add_argument("--host", default=DEFAULT_REDIS_HOST,

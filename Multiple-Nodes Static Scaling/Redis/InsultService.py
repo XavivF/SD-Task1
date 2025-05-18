@@ -1,10 +1,9 @@
 import redis
 import argparse
 import time
-import Pyro4
 from multiprocessing import Process
 
-@Pyro4.behavior(instance_mode="single")
+
 class InsultService:
     def __init__(self, redis_host, redis_port):
         self.queue_insults = "Insults_queue"
@@ -31,7 +30,6 @@ class InsultService:
         return "Insult list is empty"
 
     # --- Background processes for this service ---
-
     def notify_subscribers(self):
         print("InsultService Worker: Starting notify_subscribers...")
         try:
@@ -68,7 +66,6 @@ class InsultService:
         except KeyboardInterrupt:
             print("\nInsultService Worker: Stopping get_status_daemon...")
 
-    @Pyro4.expose
     def get_processed_count(self):
         count = self.client.get(self.counter_key)
         return int(count) if count else 0
@@ -85,27 +82,6 @@ if __name__ == "__main__":
 
     insults_service = InsultService(args.redis_host, args.redis_port)
 
-    # --- Set up Pyro server ---
-    print("Starting Pyro InsultService for remote access...")
-    try:
-        daemon = Pyro4.Daemon() # Create the Pyro daemon
-        ns = Pyro4.locateNS()  # Locate the name server
-    except Pyro4.errors.NamingError as e:
-        print("Error locating the name server. Make sure it is running.")
-        print("Command: python3 -m Pyro4.naming")
-        exit(1)
-
-    # Register the Insults service instance with the daemon and name server
-    # Clients will connect to this name 'redis.insultservice'
-    service_name = f"redis.insultservice.{args.instance_id}"
-    uri = daemon.register(insults_service)
-    try:
-        ns.register(service_name, uri)
-        print(f"InsultService registered as '{service_name}' at {uri}")
-    except Pyro4.errors.NamingError as e:
-        print(f"Error registering the service with the name server: {e}")
-        exit(1)
-
     print("InsultService: Clearing initial Redis keys (INSULTS, INSULTS_COUNTER)...")
     insults_service.client.delete(insults_service.insultSet)
     insults_service.client.delete(insults_service.counter_key)
@@ -115,30 +91,20 @@ if __name__ == "__main__":
     print("InsultService: Starting worker processes...")
     process_service_notify = Process(target=insults_service.notify_subscribers)
     process_service_listen = Process(target=insults_service.listen)
-    process_service_status = Process(target=insults_service.get_status_daemon)
 
     process_service_notify.start()
     process_service_listen.start()
-    process_service_status.start()
-
-    print("InsultService Pyro daemon started, waiting for remote requests...")
-    print(f"Service '{service_name}' available.")
 
     try:
-        daemon.requestLoop()
+        insults_service.get_status_daemon()
     except KeyboardInterrupt:
         print("\nShutting down InsultService...")
         print("Terminating worker processes...")
         process_service_notify.terminate()
         process_service_listen.terminate()
-        process_service_status.terminate()
 
         process_service_notify.join()
         process_service_listen.join()
-        process_service_status.join()
+        insults_service.client.close()
         print("InsultService worker processes finished.")
-
-        print("Shutting down Pyro daemon...")
-        daemon.shutdown()
-        print("Pyro daemon shut down.")
         print("Exiting InsultService main program.")
