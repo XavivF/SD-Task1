@@ -379,9 +379,9 @@ python3 StressTest.py <mode> [options]
 ```
 **Arguments:**
 * mode: Choose either add_insult to test the Insult Service (via LB) or filter_text to test the Insult Filter (via LB).
-* -d, --duration: Test duration in seconds (default: 10).
-* -c, --concurrency: Number of concurrent client processes to run (default: 10).
 * -u, --lb_url: URL of the XML-RPC Load Balancer (default: http://localhost:9000/RPC2).
+* -m, --messages: Number of messages to send.
+* -n, --num-service-instances: Number of service instances to retrieve stats from (default: 1)
 
 **Example:**
 ```bash
@@ -501,17 +501,13 @@ python3 StressTest.py <mode> [options]
 
 * mode: Choose either add_insult to test the Insult Service's processing of the Insults_queue
 or filter_text to test the Insult Filter's processing of the Work_queue.
-* -d, --duration: Test duration in seconds (default: 10).
-* -c, --concurrency: Number of concurrent client processes that push messages to Redis 
-(default: 10).
+* -m, --messages: Number of messages to send.
 * --host: Redis server host (default: localhost).
 * --port: Redis server port (default: 6379).
 * --insult-queue: Name of the Redis queue for publishing insults (default: Insults_queue).
 * --work-queue: Name of the Redis list/queue for filtering texts (default: Work_queue).
-* -n, --num-service-instances: Required. The total number of backend service/filter instances 
-(InsultService.py or InsultFilter.py, depending on the mode) that are running. The stress test 
-script will try to get stats from redis.insultservice.1 up to redis.insultservice.n for 
-add_insult mode, or redis.insultfilter.1 up to redis.insultfilter.n for filter_text.
+* -n, --num-instances: Required. The total number of backend service/filter instances 
+(InsultService.py or InsultFilter.py, depending on the mode) that are running.
 
 Example:
 ```bash
@@ -631,18 +627,14 @@ python3 StressTest.py <mode> [options]
 ```
 
 **Arguments**:
-* `mode`: Choose either `add_insult` to test the Insult Service's processing of the insults_exchange or 
-`filter_text` to test the Insult Filter's processing of the text_queue.
-* `-d`, `--duration`: Test duration in seconds (default: 10).
-* `-c`, `--concurrency`: Number of concurrent client processes that push messages to RabbitMQ (default: 10).
-* `--host`: RabbitMQ server host (default: localhost).
-* `--insult-exchange`: Name of the RabbitMQ exchange for publishing insults (default: insults_exchange).
-* `--work-queue`: Name of the RabbitMQ queue for filtering texts (default: text_queue).
-* `-n`, `--num-instances`: Required. The total number of backend service/filter instances (InsultService.py or 
-InsultFilter.py, depending on the mode) that are running. The stress test script will try to get stats from 
-Pyro4 names rabbit.service.1 up to rabbit.service.n for add_insult mode, or rabbit.filter.1 up to 
-rabbit.filter.n for filter_text mode. Ensure the --instance-id you used when starting the backend 
-instances corresponds to this range (starting from 1).
+* mode: Choose either add_insult to test the Insult Service's processing of the insults_exchange or 
+filter_text` to test the Insult Filter's processing of the text_queue.
+* -m, --messages: Number of messages to send.
+* --host: RabbitMQ server host (default: localhost).
+* --insult-exchange: Name of the RabbitMQ exchange for publishing insults (default: insults_exchange).
+* --work-queue: Name of the RabbitMQ queue for filtering texts (default: text_queue).
+* -n, --num-instances: Required. The total number of backend service/filter instances (InsultService.py or 
+InsultFilter.py, depending on the mode) that are running.
 
 **Example**:
 ```bash
@@ -765,8 +757,8 @@ python3 StressTest.py <mode> [options]
 **Arguments**:
 * mode: Choose either add_insult to test the Insult Service (via LB) or filter_text to test the Insult 
 Filter (via LB).
-* -d, --duration: Test duration in seconds (default: 10).
-* -c, --concurrency: Number of concurrent client processes to run (default: 10).
+* -m, --messages: Number of messages to send.
+* -n, --num-instances: Required. The total number of backend service/filter instances.
 * --ns-host: Host of the Pyro Name Server (optional, default: locate via broadcast).
 * --ns-port: Port of the Pyro Name Server (optional, default: locate via broadcast).
 

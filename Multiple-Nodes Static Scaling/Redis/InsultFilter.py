@@ -1,3 +1,4 @@
+import Pyro4
 import redis
 import argparse
 from multiprocessing import Process
@@ -76,6 +77,28 @@ if __name__ == "__main__":
 
     insult_filter = InsultFilter(args.redis_host, args.redis_port)     # Create the InsultFilter instance
 
+    # --- Set up Pyro server ---
+    print("Starting Pyro InsultFilter for remote access...")
+    try:
+        daemon = Pyro4.Daemon()  # Create the Pyro daemon
+        ns = Pyro4.locateNS()  # Locate the name server
+    except Pyro4.errors.NamingError as e:
+        # You need to have the name server running: python3 -m Pyro4.naming
+        print("Error locating the name server. Make sure it is running.")
+        print("Command: python3 -m Pyro4.naming")
+        exit(1)
+
+    # Register InsultFilter service instance with the daemon and name server
+    # Clients will connect to this name 'redis.insultfilter'
+    filter_name = f"redis.insultfilter.{args.instance_id}"
+    uri = daemon.register(insult_filter)
+    try:
+        ns.register(filter_name, uri)
+        print(f"InsultFilter registered as '{filter_name}' at {uri}")
+    except Pyro4.errors.NamingError as e:
+        print(f"Error registering the service with the name server: {e}")
+        exit(1)
+
     print("InsultFilter: Clearing initial Redis keys (INSULTS, RESULTS, Work_queue)...")
     insult_filter.client.delete(insult_filter.insultSet)
     insult_filter.client.delete(insult_filter.censoredTextsSet)
@@ -86,16 +109,21 @@ if __name__ == "__main__":
     # --- Start background processes for InsultFilter ---
     print("InsultFilter: Starting worker processes...")
     process_filter_service = Process(target=insult_filter.filter_service)
+    process_service_status = Process(target=insult_filter.get_status_daemon)
 
     process_filter_service.start()
+    process_service_status.start()
     try:
-        insult_filter.get_status_daemon()
+        daemon.requestLoop()
     except KeyboardInterrupt:
         print("\nShutting down InsultFilter...")
         print("Terminating worker processes...")
         # Terminate and join worker processes
         process_filter_service.terminate()
+        process_service_status.terminate()
         process_filter_service.join()
+        process_service_status.join()
         insult_filter.client.close()
+        daemon.shutdown()
         print("InsultFilter worker processes finished.")
         print("Exiting InsultFilter main program.")
