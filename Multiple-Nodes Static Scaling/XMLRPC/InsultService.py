@@ -1,13 +1,9 @@
 import random
 import xmlrpc.client
-from multiprocessing import Value
 from xmlrpc.server import SimpleXMLRPCRequestHandler
 from xmlrpc.server import SimpleXMLRPCServer
 import argparse
 import sys
-
-# Global counter for processed requests (local to this instance)
-processed_requests_counter = Value('i', 0)
 
 # Restrict to a particular path.
 class RequestHandler(SimpleXMLRPCRequestHandler):
@@ -22,10 +18,9 @@ args = parser.parse_args()
 port = args.port
 
 class Insults:
-    def __init__(self, req_counter):
+    def __init__(self):
         self.insults = []   # received insults
         self.subscribers = [] # Subscribers for this specific instance
-        self.counter = req_counter
 
     def add_subscriber(self, url):
         if url not in self.subscribers:
@@ -47,8 +42,6 @@ class Insults:
         return f"Subscribers of instance on port {port} notified."
 
     def add_insult(self, insult):
-        with self.counter.get_lock():
-            self.counter.value += 1
         self.insults.append(insult)
         # print(f"Instance on port {port} added insult: {insult}. Count: {self.counter.value}")
         return f"Insult added by instance on port {port}: {insult}"
@@ -57,21 +50,13 @@ class Insults:
         return self.insults
 
     def insult_me(self):
-        with self.counter.get_lock():
-            self.counter.value += 1
         if len(self.insults) == 0:
-            print(f"Instance on port {port}: No insults available. Count: {self.counter.value}")
+            print(f"Instance on port {port}: No insults available.")
             return "No insults available"
         i = random.randint(0, len(self.insults)-1)
         chosen_insult = self.insults[i]
-        print(f"Instance on port {port} chose insult: {chosen_insult}. Count: {self.counter.value}")
+        print(f"Instance on port {port} chose insult: {chosen_insult}.")
         return chosen_insult
-
-    def get_processed_count(self):
-        with self.counter.get_lock():
-            count = self.counter.value
-        print(f"Instance on port {port} returning processed count: {count}")
-        return count
 
 # Create server
 try:
@@ -79,7 +64,7 @@ try:
                             requestHandler=RequestHandler) as server:
         server.register_introspection_functions()
 
-        insults_instance = Insults(processed_requests_counter)
+        insults_instance = Insults()
         server.register_instance(insults_instance)
 
         # Run the server's main loop
