@@ -1,5 +1,3 @@
-# scaler_manager.py
-import pika
 import Pyro4
 import time
 import math
@@ -9,9 +7,8 @@ from multiprocessing import Process, Event, Manager as ProcManager
 import threading
 import config
 
-# Importa els dos tipus de workers
 from insult_filter_worker import InsultFilterWorker
-from insult_processor_worker import InsultProcessorWorker  # NOU WORKER
+from insult_processor_worker import InsultProcessorWorker
 from redis_manager import redis_cli
 
 
@@ -22,7 +19,7 @@ class ScalerManagerPyro:
         self.proc_manager = ProcManager()  # Gestor de Processos per a llistes compartides
 
         # Pool per InsultFilterWorkers
-        # Aquesta llista compartida guardarà NOMÉS ID i type (pickleable)
+        # Aquesta llista compartida guardarà NOMÉS ID i type
         self.filter_worker_processes_info = self.proc_manager.list()
         # Aquest diccionari local guardarà els objectes Process i Event
         # Es gestiona només dins del procés del ScalerManager
@@ -33,7 +30,7 @@ class ScalerManagerPyro:
         self.last_filter_message_count = 0
         self.estimated_filter_arrival_rate_lambda = 0.0
 
-        # Pool per InsultProcessorWorkers (NOU)
+        # Pool per InsultProcessorWorkers
         # Aquesta llista compartida guardarà NOMÉS ID i type
         self.insult_processor_worker_processes_info = self.proc_manager.list()
         # Aquest diccionari local guardarà els objectes Process i Event
@@ -57,7 +54,7 @@ class ScalerManagerPyro:
 
         print("ScalerManager initialized (manages FilterWorkers and InsultProcessorWorkers).")
 
-    def _get_queue_length_http(self, queue_name: str, vhost: str = '%2F') -> int:
+    def get_queue_length_http(self, queue_name: str, vhost: str = '%2F') -> int:
         # Aquest mètode es manté igual
         api_url = f"http://{config.RABBITMQ_HOST}:15672/api/queues/{vhost}/{queue_name}"
         try:
@@ -73,33 +70,7 @@ class ScalerManagerPyro:
             print(f"[ScalerManager] Unexpected error parsing queue length for '{queue_name}': {e}")
             return -1
 
-
-    def _update_arrival_rate_estimate(self, current_message_count: int, last_message_count: int,
-                                      last_check_time: float, current_workers_count: int,
-                                      worker_capacity: float) -> tuple[float, int, float]:
-        """Calcula una nova estimació de lambda i actualitza comptadors."""
-        current_time = time.time()
-        time_delta = current_time - last_check_time
-        new_lambda_estimate = 0.0
-
-        if time_delta > 0.1:  # Evita divisió per zero o valors massa petits
-            message_delta = current_message_count - last_message_count
-            current_processing_capacity = current_workers_count * worker_capacity
-
-            # Estimació: arribades = canvi net a la cua + el que s'ha processat pels workers actuals
-            # Taxa d'arribada = (message_delta + (current_processing_capacity * time_delta)) / time_delta
-            # Simplificat: taxa d'arribada = message_delta / time_delta + current_processing_capacity
-
-            estimated_arrivals_in_interval = message_delta + (current_processing_capacity * time_delta)
-            if estimated_arrivals_in_interval < 0: estimated_arrivals_in_interval = 0  # No pot ser negatiu
-
-            new_lambda_estimate = estimated_arrivals_in_interval / time_delta
-            if new_lambda_estimate < 0: new_lambda_estimate = 0.0 # La taxa d'arribada no pot ser negativa
-
-        return new_lambda_estimate, current_message_count, current_time
-
-
-    def _start_worker(self, worker_type: str):
+    def start_worker(self, worker_type: str):
         """Inicia un worker del tipus especificat i gestiona les llistes locals i compartides."""
         worker_id = f"{worker_type}_{time.time_ns()}"
         # L'Event es crea aquí (en el procés pare) i es passarà per argument al procés fill.
@@ -148,7 +119,7 @@ class ScalerManagerPyro:
         print(f"[ScalerManager] Started {worker_type}: {worker_id}")
 
 
-    def _stop_worker(self, worker_type: str):
+    def stop_worker(self, worker_type: str):
         """Atura un worker del pool especificat (senyalitzant l'event local)."""
 
         worker_pool_list_shared = None # Llista compartida del Manager (ID, type)
@@ -191,15 +162,21 @@ class ScalerManagerPyro:
         return False # No hi havia workers per aturar
 
 
-    def _adjust_worker_pool(self, queue_name: str,
-                            min_workers: int, max_workers: int,
-                            worker_capacity_c: float, target_response_time_tr: float,
-                            last_msg_count_attr_name: str, last_check_time_attr_name: str,
-                            lambda_attr_name: str, worker_type_name: str):
+    def adjust_worker_pool(self, queue_name: str,
+                           min_workers: int, max_workers: int,
+                           worker_capacity_c: float, average_response_time: float,
+                           last_msg_count_attr_name: str, last_check_time_attr_name: str,
+                           lambda_attr_name: str, worker_type_name: str):
         """Lògica genèrica per ajustar un pool de treballadors."""
 
         worker_pool_list_shared = None # Llista compartida del Manager (ID, type)
         worker_pool_local_dict = None # Diccionari local (ID -> Process, Event, type)
+
+        lambda_rate = 0.0
+        if queue_name == config.TEXT_QUEUE_NAME:
+            lambda_rate = config.FILTER_ARRIVAL_RATE
+        elif queue_name == config.INSULTS_PROCESSING_QUEUE_NAME:
+            lambda_rate = config.INSULT_ARRIVAL_RATE
 
         if worker_type_name == "FilterWorker":
             worker_pool_list_shared = self.filter_worker_processes_info
@@ -211,66 +188,33 @@ class ScalerManagerPyro:
              print(f"[ScalerManager] Error: Unknown worker type during adjustment for {queue_name}.")
              return
 
-
-        backlog_B = self._get_queue_length_http(queue_name)
+        backlog_B = self.get_queue_length_http(queue_name)
         if backlog_B == -1:
-            print(
-                f"[ScalerManager] Cannot adjust {worker_type_name} pool, failed to get queue length for '{queue_name}'.")
+            print(f"[ScalerManager] Cannot adjust {worker_type_name} pool, failed to get queue length for '{queue_name}'.")
             return
-
-        # Actualitza estimació de lambda per aquest pool
-        last_msg_count = getattr(self, last_msg_count_attr_name)
-        last_check_time = getattr(self, last_check_time_attr_name)
 
         current_workers_count = len(worker_pool_list_shared) # Utilitzem la mida de la llista compartida (registrats)
 
-        new_lambda, updated_msg_count, updated_check_time = self._update_arrival_rate_estimate(
-            current_message_count=backlog_B,
-            last_message_count=last_msg_count,
-            last_check_time=last_check_time,
-            current_workers_count=current_workers_count, # Passar la mida de la llista compartida
-            worker_capacity=worker_capacity_c
-        )
-        setattr(self, lambda_attr_name, new_lambda)
-        setattr(self, last_msg_count_attr_name, updated_msg_count)
-        setattr(self, last_check_time_attr_name, updated_check_time)
+        print(f"[ScalerManager-{worker_type_name}] State: Backlog (B)={backlog_B}, Est. Lambda (λ)={lambda_rate:.2f} msg/s")
 
-        lambda_rate = getattr(self, lambda_attr_name)
+        # Fórmula N = ceil((lambda * Tr + B) / C )
+        numerator = (lambda_rate * average_response_time) + backlog_B
+        denominator = worker_capacity_c
 
-        print(
-            f"[ScalerManager-{worker_type_name}] State: Backlog (B)={backlog_B}, Est. Lambda (λ)={lambda_rate:.2f} msg/s")
-
-        if worker_capacity_c <= 0:
-            print(
-                f"[ScalerManager-{worker_type_name}] Worker capacity (C) is not positive. Cannot calculate N_required.")
-            num_required_N = current_workers_count
-        # Si no hi ha cua i lambda és molt baix, anar al mínim, excepte si ja estem per sota del mínim
-        elif backlog_B == 0 and lambda_rate < (0.1 * worker_capacity_c):
-             num_required_N = min_workers
-        else:
-            # Fórmula N = ceil((lambda * Tr + B) / (C * Tr))
-            # Aquesta és la teva fórmula, la implementem
-            numerator = (lambda_rate * target_response_time_tr) + backlog_B
-            denominator = worker_capacity_c * target_response_time_tr
-
-            if denominator <= 0: # Evitar divisió per zero o negatius si Tr o C són <= 0
-                 num_required_N = max_workers if numerator > 0 else min_workers
-            else:
-                num_required_N = math.ceil(numerator / denominator)
+        num_required_N = math.ceil(numerator / denominator)
 
 
         # Assegurar que N_required està dins dels límits min/max
         num_required_N = max(min_workers, min(num_required_N, max_workers))
 
-        print(
-            f"[ScalerManager-{worker_type_name}] Calculated N_required = {num_required_N}, Current workers = {current_workers_count}")
+        print(f"[ScalerManager-{worker_type_name}] Calculated N_required = {num_required_N}, Current workers = {current_workers_count}")
 
         if num_required_N > current_workers_count:
             num_to_add = num_required_N - current_workers_count
             print(f"[ScalerManager-{worker_type_name}] Scaling up: Adding {num_to_add} worker(s).")
             for _ in range(num_to_add):
                 if len(worker_pool_list_shared) < max_workers: # Comprovem la mida de la llista compartida (registrats)
-                    self._start_worker(worker_type_name) # Inicia i gestiona llistes internes
+                    self.start_worker(worker_type_name) # Inicia i gestiona llistes internes
                 else:
                     print(f"[ScalerManager-{worker_type_name}] Max workers ({max_workers}) reached, cannot add more.")
                     break # Aturem si hem arribat al màxim
@@ -280,7 +224,7 @@ class ScalerManagerPyro:
             for _ in range(num_to_remove):
                 # Eliminar workers de la llista compartida (que senyalitza stop localment)
                 if len(worker_pool_list_shared) > min_workers: # Comprovem la mida de la llista compartida
-                    self._stop_worker(worker_type_name) # Elimina de llista shared i senyalitza stop local
+                    self.stop_worker(worker_type_name) # Elimina de llista shared i senyalitza stop local
                 else:
                     print(f"[ScalerManager-{worker_type_name}] Min workers ({min_workers}) reached, cannot remove more.")
                     break # Aturem si hem arribat al mínim
@@ -354,12 +298,12 @@ class ScalerManagerPyro:
             if current_time - filter_last_scale_time >= config.FILTER_SCALING_INTERVAL:
                 print("\n--- Adjusting InsultFilterWorker Pool ---")
                 # Cridem _adjust_worker_pool que gestiona les llistes internes
-                self._adjust_worker_pool(
+                self.adjust_worker_pool(
                     queue_name=config.TEXT_QUEUE_NAME,
                     min_workers=config.FILTER_MIN_WORKERS,
                     max_workers=config.FILTER_MAX_WORKERS,
                     worker_capacity_c=config.FILTER_WORKER_CAPACITY_C,
-                    target_response_time_tr=config.FILTER_TARGET_RESPONSE_TIME_TR,
+                    average_response_time=config.FILTER_AVERAGE_RESPONSE_TIME,
                     last_msg_count_attr_name='last_filter_message_count',
                     last_check_time_attr_name='last_filter_queue_check_time',
                     lambda_attr_name='estimated_filter_arrival_rate_lambda',
@@ -371,12 +315,12 @@ class ScalerManagerPyro:
             if current_time - insult_processor_last_scale_time >= config.INSULT_PROCESSOR_SCALING_INTERVAL:
                 print("\n--- Adjusting InsultProcessorWorker Pool ---")
                 # Cridem _adjust_worker_pool que gestiona les llistes internes
-                self._adjust_worker_pool(
+                self.adjust_worker_pool(
                     queue_name=config.INSULTS_PROCESSING_QUEUE_NAME,
                     min_workers=config.INSULT_PROCESSOR_MIN_WORKERS,
                     max_workers=config.INSULT_PROCESSOR_MAX_WORKERS,
                     worker_capacity_c=config.INSULT_PROCESSOR_WORKER_CAPACITY_C,
-                    target_response_time_tr=config.INSULT_PROCESSOR_TARGET_RESPONSE_TIME_TR,
+                    average_response_time=config.INSULT_PROCESSOR_AVERAGE_RESPONSE_TIME,
                     last_msg_count_attr_name='last_insult_message_count',
                     last_check_time_attr_name='last_insult_queue_check_time',
                     lambda_attr_name='estimated_insult_arrival_rate_lambda',
@@ -463,8 +407,8 @@ class ScalerManagerPyro:
 
     @Pyro4.expose
     def get_scaler_stats(self):
-        filter_queue_len = self._get_queue_length_http(config.TEXT_QUEUE_NAME)
-        insult_proc_queue_len = self._get_queue_length_http(config.INSULTS_PROCESSING_QUEUE_NAME)
+        filter_queue_len = self.get_queue_length_http(config.TEXT_QUEUE_NAME)
+        insult_proc_queue_len = self.get_queue_length_http(config.INSULTS_PROCESSING_QUEUE_NAME)
 
         # Cal utilitzar la mida de les llistes compartides per al nombre de workers actius
         # que el ScalerManager *creu* que estan vius/registrats.
@@ -476,24 +420,20 @@ class ScalerManagerPyro:
                 "active_workers": active_filter_workers,
                 "text_queue_length": filter_queue_len if filter_queue_len != -1 else "Error",
                 # La lambda estimada es guarda com a atribut de l'objecte ScalerManager
-                "estimated_arrival_rate_lambda": f"{self.estimated_filter_arrival_rate_lambda:.2f} msg/s",
-                # Estadístiques de Redis
                 "total_texts_censored_redis": redis_cli.get_censored_texts_count(),
-                "filter_processed_redis_counter": redis_cli.r.get(config.REDIS_FILTER_PROCESSED_COUNTER_KEY) or 0,
+                "filter_processed_redis_counter": redis_cli.r.get(config.REDIS_PROCESSED_COUNTER_KEY) or 0,
             },
             "insult_processor_pool": {  # NOU
                 "active_workers": active_insult_processors,
                 "insults_processing_queue_length": insult_proc_queue_len if insult_proc_queue_len != -1 else "Error",
                  # La lambda estimada es guarda com a atribut de l'objecte ScalerManager
-                "estimated_arrival_rate_lambda": f"{self.estimated_insult_arrival_rate_lambda:.2f} insults/s",
-                 # Estadístiques de Redis
-                "insults_processed_redis_counter": redis_cli.r.get(config.REDIS_INSULTS_PROCESSED_COUNTER_KEY) or 0,
+                "insults_processed_redis_counter": redis_cli.r.get(config.REDIS_PROCESSED_COUNTER_KEY) or 0,
             },
             "config_summary": {
                 "filter_min_max_workers": f"{config.FILTER_MIN_WORKERS}-{config.FILTER_MAX_WORKERS}",
-                "filter_C_Tr": f"C={config.FILTER_WORKER_CAPACITY_C}, Tr={config.FILTER_TARGET_RESPONSE_TIME_TR}",
+                "filter_C_Tr": f"C={config.FILTER_WORKER_CAPACITY_C}, Tr={config.FILTER_AVERAGE_RESPONSE_TIME}",
                 "insult_proc_min_max_workers": f"{config.INSULT_PROCESSOR_MIN_WORKERS}-{config.INSULT_PROCESSOR_MAX_WORKERS}",
-                "insult_proc_C_Tr": f"C={config.INSULT_PROCESSOR_WORKER_CAPACITY_C}, Tr={config.INSULT_PROCESSOR_TARGET_RESPONSE_TIME_TR}",
+                "insult_proc_C_Tr": f"C={config.INSULT_PROCESSOR_WORKER_CAPACITY_C}, Tr={config.INSULT_PROCESSOR_AVERAGE_RESPONSE_TIME}",
             }
         }
 
@@ -502,6 +442,13 @@ class ScalerManagerPyro:
     def get_censored_texts_sample(self, count=10):
          """Returns a sample of censored texts from Redis."""
          return redis_cli.get_censored_texts(0, count - 1)
+
+    @Pyro4.expose
+    def reset_counter(self):
+        """Resets the processed texts counter in Redis."""
+        redis_cli.reset_processed_count()
+        print("[ScalerManager] Processed texts counter reset in Redis.")
+        return True
 
 
     def start_pyro_daemon(self):

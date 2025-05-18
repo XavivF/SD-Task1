@@ -1,11 +1,8 @@
-# main_launcher.py
 import time
 import Pyro4
-import threading
 import config
 from multiprocessing import Process
 
-# Importa les classes dels teus serveis
 from scaler_manager import ScalerManagerPyro
 from insult_service import InsultServicePyro, start_insult_service_components
 

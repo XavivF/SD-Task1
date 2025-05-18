@@ -1,4 +1,3 @@
-# redis_manager.py
 import redis
 import config
 
@@ -47,6 +46,10 @@ class RedisManager:
         """Gets the total processed texts counter."""
         val = self.r.get(config.REDIS_PROCESSED_COUNTER_KEY)
         return int(val) if val else 0
+
+    def reset_processed_count(self):
+        """Resets the total processed texts counter."""
+        self.r.delete(config.REDIS_PROCESSED_COUNTER_KEY)
 
 # Singleton instance
 redis_cli = RedisManager()

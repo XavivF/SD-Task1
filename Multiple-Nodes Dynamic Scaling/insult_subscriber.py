@@ -1,4 +1,3 @@
-# insult_subscriber.py
 import pika
 import config
 import time
@@ -10,13 +9,12 @@ class InsultSubscriber:
         self.channel = None
         print("InsultSubscriber initialized.")
 
-    def _connect_rabbitmq(self):
+    def connect_rabbitmq(self):
         while True:
             try:
                 self.connection = pika.BlockingConnection(pika.URLParameters(config.RABBITMQ_URL))
                 self.channel = self.connection.channel()
-                self.channel.exchange_declare(exchange=config.INSULTS_BROADCAST_EXCHANGE_NAME, exchange_type='fanout',
-                                              durable=True)
+                self.channel.exchange_declare(exchange=config.INSULTS_BROADCAST_EXCHANGE_NAME, exchange_type='fanout')
 
                 # Declara una cua exclusiva i temporal per aquest subscriptor
                 result = self.channel.queue_declare(queue='', exclusive=True, durable=True)
@@ -31,15 +29,11 @@ class InsultSubscriber:
                 time.sleep(5)
 
     def listen(self):
-        self._connect_rabbitmq()  # Assegura la connexió inicial
+        self.connect_rabbitmq()
 
         def callback(ch, method, properties, body):
             insult = body.decode('utf-8')
             print(f"InsultSubscriber: Received insult: {insult}")
-            # No cal fer ack() si auto_ack=True, però és millor pràctica fer-ho manual.
-            # Aquí, per simplicitat, deixarem que el servei que envia (InsultService)
-            # gestioni la persistència del missatge. Si el subscriptor volgués assegurar
-            # el processament, hauria de fer auto_ack=False i ch.basic_ack().
 
         self.channel.basic_consume(queue=self.queue_name, on_message_callback=callback, auto_ack=True)
 
@@ -51,11 +45,8 @@ class InsultSubscriber:
         except pika.exceptions.ConnectionClosedByBroker:
             print("InsultSubscriber: Connection closed by broker. Attempting to reconnect...")
             self.listen()  # Torna a intentar connectar i escoltar
-        except pika.exceptions.AMQPChannelError as e:
-            print(f"InsultSubscriber: Caught a channel error: {e}. Reconnecting...")
-            self.listen()
-        except pika.exceptions.AMQPConnectionError as e:
-            print(f"InsultSubscriber: Caught a connection error: {e}. Reconnecting...")
+        except pika.exceptions as e:
+            print(f"InsultSubscriber: Caught an error: {e}. Reconnecting...")
             self.listen()
         finally:
             if self.connection and self.connection.is_open:

@@ -1,19 +1,14 @@
-# insult_client.py
-# ... (imports iguals) ...
 import argparse
 import random
 import time
 from multiprocessing import Event, Process
-
 import Pyro4
 import pika
-
-import config  # Assegura't que config s'importa
+import config
 
 
 class InsultClientDynamic:
     def __init__(self):
-        # ... (inicialització de Pyro igual) ...
         self.pyro_ns = None
         try:
             self.pyro_ns = Pyro4.locateNS(host=config.PYRO_NS_HOST, port=config.PYRO_NS_PORT)
@@ -42,7 +37,6 @@ class InsultClientDynamic:
         self.rabbit_connection = None
         self.rabbit_channel = None
         self._connect_rabbitmq()
-        # ... (mostres d'insults i textos iguals) ...
         self.insults_samples = ["beneit", "capsigrany", "ganàpia", "nyicris", "gamarús", "bocamoll", "murri", "dropo",
                                 "bleda", "xitxarel·lo"]
         self.texts_samples = [
@@ -58,9 +52,7 @@ class InsultClientDynamic:
         try:
             self.rabbit_connection = pika.BlockingConnection(pika.URLParameters(config.RABBITMQ_URL))
             self.rabbit_channel = self.rabbit_connection.channel()
-            # Declara la cua per enviar textos a filtrar
             self.rabbit_channel.queue_declare(queue=config.TEXT_QUEUE_NAME, durable=True)
-            # Declara la NOVA cua per enviar insults a processar
             self.rabbit_channel.queue_declare(queue=config.INSULTS_PROCESSING_QUEUE_NAME, durable=True)
             print("Client: Connected to RabbitMQ and declared queues.")
         except pika.exceptions.AMQPConnectionError as e:
@@ -68,7 +60,6 @@ class InsultClientDynamic:
             self.rabbit_channel = None
 
     def send_text_to_filter(self, text: str):
-        # ... (igual que abans) ...
         if not self.rabbit_channel or self.rabbit_channel.is_closed:  # type: ignore
             print("Client: RabbitMQ channel not available for text. Attempting to reconnect...")
             self._connect_rabbitmq()
@@ -82,12 +73,10 @@ class InsultClientDynamic:
                 body=text,
                 properties=pika.BasicProperties(delivery_mode=2)
             )
-            # print(f"Client: Sent text to filter: '{text}'") # Opcional, pot ser sorollós
         except pika.exceptions.AMQPConnectionError as e:
             print(f"Client: Error sending text to RabbitMQ: {e}")
 
-    def publish_new_insult_to_queue(self, insult: str):  # NOM CANVIAT i LÒGICA CANVIADA
-        """Publica un insult a la cua de processament d'insults."""
+    def publish_new_insult_to_queue(self, insult: str):
         if not self.rabbit_channel or self.rabbit_channel.is_closed:  # type: ignore
             print("Client: RabbitMQ channel not available for insult. Attempting to reconnect...")
             self._connect_rabbitmq()
@@ -96,18 +85,14 @@ class InsultClientDynamic:
                 return
 
         try:
-            self.rabbit_channel.basic_publish(  # type: ignore
-                exchange='',  # Direct to queue
-                routing_key=config.INSULTS_PROCESSING_QUEUE_NAME,  # Publica a la nova cua
-                body=insult,
-                properties=pika.BasicProperties(delivery_mode=2)  # Missatge persistent
+            self.rabbit_channel.basic_publish(
+                exchange='',
+                routing_key=config.INSULTS_PROCESSING_QUEUE_NAME,
+                body=insult
             )
             print(f"Client: Published new insult to queue '{config.INSULTS_PROCESSING_QUEUE_NAME}': '{insult}'")
         except pika.exceptions.AMQPConnectionError as e:
             print(f"Client: Error publishing insult to RabbitMQ queue: {e}")
-
-    # get_all_insults_from_service, get_scaler_stats, get_censored_texts_sample_from_scaler
-    # es mantenen igual.
 
     def get_all_insults_from_service(self):
         if self.insult_service_proxy:
@@ -132,8 +117,7 @@ class InsultClientDynamic:
     def get_censored_texts_sample_from_scaler(self, count=5):
         if self.scaler_manager_proxy:
             try:
-                return self.scaler_manager_proxy.get_censored_texts_sample(
-                    count)  # Aquest mètode s'hauria d'afegir a ScalerManager si no existeix
+                return self.scaler_manager_proxy.get_censored_texts_sample(count)
             except Exception as e:
                 print(f"Client: Error calling ScalerManager.get_censored_texts_sample(): {e}")
         else:
@@ -146,23 +130,22 @@ class InsultClientDynamic:
             print("Client: RabbitMQ connection closed.")
 
 
-def continuous_text_and_insult_sender(client: InsultClientDynamic, stop_event):
+def continuous_text_and_insult_sender(dynamic_client: InsultClientDynamic, stop_event):
     """ Envia textos i insults aleatoris contínuament """
     text_counter = 0
     insult_counter = 0
     while not stop_event.is_set():
         # Envia un text
-        text = random.choice(client.texts_samples)
-        client.send_text_to_filter(text)
+        text = random.choice(dynamic_client.texts_samples)
+        dynamic_client.send_text_to_filter(text)
         text_counter += 1
 
-        # De tant en tant (p.ex., cada 5 textos), envia un insult nou
         if text_counter % 5 == 0:
-            insult = random.choice(client.insults_samples) + "_" + str(random.randint(100, 999))  # Per fer-los únics
-            client.publish_new_insult_to_queue(insult)
+            insult = random.choice(dynamic_client.insults_samples) + "_" + str(random.randint(100, 999))  # Per fer-los únics
+            dynamic_client.publish_new_insult_to_queue(insult)
             insult_counter += 1
 
-        sleep_time = random.uniform(0.05, 0.5)  # Envia amb força freqüència per provar l'escalat
+        sleep_time = random.uniform(0.05, 0.5)
 
         start_sleep = time.time()
         while time.time() - start_sleep < sleep_time:
@@ -197,10 +180,10 @@ if __name__ == "__main__":
                                      daemon=True)
             sender_process.start()
             print("Continuous text and insult sender started. Press Ctrl+C to stop client and sender.")
-            while True: time.sleep(1)  # Manté el client actiu
+            while True: time.sleep(1)
 
         elif args.add_insult:
-            client.publish_new_insult_to_queue(args.add_insult)  # USA EL NOU MÈTODE
+            client.publish_new_insult_to_queue(args.add_insult)
 
         elif args.get_insults:
             insults = client.get_all_insults_from_service()
@@ -216,7 +199,7 @@ if __name__ == "__main__":
                         for key, value in pool_stats.items():
                             print(f"    {key}: {value}")
                     else:
-                        print(f"  {pool_name}: {pool_stats}")  # Per config_summary o altres claus
+                        print(f"  {pool_name}: {pool_stats}")
             else:
                 print("  No stats received.")
 
