@@ -29,18 +29,19 @@ PYRO_DAEMON_HOST = "localhost"
 # Dynamic Scaling Parameters for InsultFilterWorker pool (text_queue)
 FILTER_MIN_WORKERS = 1
 FILTER_MAX_WORKERS = 100
-FILTER_WORKER_CAPACITY_C = 3579.42 # msg/s
-FILTER_AVERAGE_RESPONSE_TIME = 0.00027937487 # s
+FILTER_WORKER_CAPACITY_C = 1159.75 # msg/s
+FILTER_AVERAGE_RESPONSE_TIME = 0.00086225479 # s
 FILTER_ARRIVAL_RATE = 50000 # msg/s
 FILTER_SCALING_INTERVAL = 2  # s
 
 # Dynamic Scaling Parameters for InsultProcessorWorker pool (insults_processing_queue) - NOU
 INSULT_PROCESSOR_MIN_WORKERS = 1
-INSULT_PROCESSOR_MAX_WORKERS = 100
-INSULT_PROCESSOR_WORKER_CAPACITY_C = 2970.94 # insults/s (afegir a Redis és ràpid)
-INSULT_PROCESSOR_AVERAGE_RESPONSE_TIME = 0.0003365938 # s
-INSULT_PROCESSOR_SCALING_INTERVAL = 2 # s (pot ser diferent)
+INSULT_PROCESSOR_MAX_WORKERS = 150
+INSULT_PROCESSOR_WORKER_CAPACITY_C = 1179.38 # insults/s (afegir a Redis és ràpid)
+INSULT_PROCESSOR_AVERAGE_RESPONSE_TIME = 0.00084790313 # s
 INSULT_ARRIVAL_RATE = 45000 # insults/s
+INSULT_PROCESSOR_SCALING_INTERVAL = 2 # s (pot ser diferent)
+
 
 # Insult Service (Broadcaster) Configuration
 NUM_INSULT_NOTIFIERS = 1  # Nombre de processos que notifiquen als subscriptors

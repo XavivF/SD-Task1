@@ -249,8 +249,7 @@ def run_stress_test(num_messages, test_type):
             pass # Ignore if queue is empty unexpectedly
 
 
-    print(
-        f"Stress test client attempted to send {total_sent_by_stress_test + total_send_errors_by_stress_test} messages ({test_type}). Sent {total_sent_by_stress_test}, failed {total_send_errors_by_stress_test}.")
+    print(f"Stress test client attempted to send {total_sent_by_stress_test + total_send_errors_by_stress_test} messages ({test_type}). Sent {total_sent_by_stress_test}, failed {total_send_errors_by_stress_test}.")
 
     if total_sent_by_stress_test == 0:
         print("No messages were successfully sent by the stress test client. Cannot measure worker throughput.")

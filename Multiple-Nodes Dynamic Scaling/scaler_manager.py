@@ -294,9 +294,10 @@ class ScalerManagerPyro:
         while not self.stop_main_loop_event.is_set():
             current_time = time.time()
 
+
             # Ajustar FilterWorkers
             if current_time - filter_last_scale_time >= config.FILTER_SCALING_INTERVAL:
-                print("\n--- Adjusting InsultFilterWorker Pool ---")
+                print("\n\n--- Adjusting InsultFilterWorker Pool ---")
                 # Cridem _adjust_worker_pool que gestiona les llistes internes
                 self.adjust_worker_pool(
                     queue_name=config.TEXT_QUEUE_NAME,
@@ -310,10 +311,9 @@ class ScalerManagerPyro:
                     worker_type_name="FilterWorker"
                 )
                 filter_last_scale_time = current_time
-
             # Ajustar InsultProcessorWorkers (NOU)
             if current_time - insult_processor_last_scale_time >= config.INSULT_PROCESSOR_SCALING_INTERVAL:
-                print("\n--- Adjusting InsultProcessorWorker Pool ---")
+                print("\n\n--- Adjusting InsultProcessorWorker Pool ---")
                 # Cridem _adjust_worker_pool que gestiona les llistes internes
                 self.adjust_worker_pool(
                     queue_name=config.INSULTS_PROCESSING_QUEUE_NAME,
@@ -327,7 +327,6 @@ class ScalerManagerPyro:
                     worker_type_name="InsultProcessorWorker"
                 )
                 insult_processor_last_scale_time = current_time
-
 
             time.sleep(1)  # Comprova cada segon si toca escalar algun pool
 
@@ -349,7 +348,7 @@ class ScalerManagerPyro:
                     if 'stop_event' in worker_info_local and worker_info_local['stop_event']:
                        stop_event_to_set = worker_info_local['stop_event']
                        stop_event_to_set.set()
-                       print(f"[ScalerManager] Signaled {worker_type} {worker_id} to stop (final cleanup).")
+                       # print(f"[ScalerManager] Signaled {worker_type} {worker_id} to stop (final cleanup).")
                     else:
                        print(f"[ScalerManager] Warning: Stop event not found in local info for {worker_type} {worker_id} during final cleanup.")
 

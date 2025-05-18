@@ -11,6 +11,8 @@ class InsultFilterWorker:
         self.stop_event = stop_event
         self.connection = None
         self.channel = None
+        self.insults = ["tonto", "lleig", "boig", "idiota", "estúpid", "inútil", "desastre", "fracassat", "covard", "mentider",
+                        "beneit", "capsigrany", "ganàpia", "nyicris", "gamarús", "bocamoll", "murri", "dropo", "bleda", "xitxarel·lo"]
         print(f"[Worker {self.worker_id}] Initialized.")
 
     def connect_rabbitmq(self):
@@ -27,7 +29,7 @@ class InsultFilterWorker:
             self.connect_rabbitmq()  # Retry
 
     def filter_text(self, text: str) -> str:
-        current_insults = redis_cli.get_all_insults()
+        current_insults = self.insults
 
         words = text.split()
         censored_words = []
@@ -39,10 +41,10 @@ class InsultFilterWorker:
         return " ".join(censored_words)
 
     def run(self):
-        print(f"[Worker {self.worker_id}] Starting...")
+        # print(f"[Worker {self.worker_id}] Starting...")
         self.connect_rabbitmq()
         if not self.channel:
-            print(f"[Worker {self.worker_id}] Cannot start without RabbitMQ channel. Exiting.")
+            # print(f"[Worker {self.worker_id}] Cannot start without RabbitMQ channel. Exiting.")
             return
 
         while not self.stop_event.is_set():
@@ -67,10 +69,10 @@ class InsultFilterWorker:
                         print(f"[Worker {self.worker_id}] Error NACKing message: {ne}")
                 time.sleep(1)  # Wait a bit before retrying or next loop
 
-        print(f"[Worker {self.worker_id}] Stop event received. Shutting down.")
+        # print(f"[Worker {self.worker_id}] Stop event received. Shutting down.")
         if self.connection and self.connection.is_open:
             self.connection.close()
-        print(f"[Worker {self.worker_id}] Shutdown complete.")
+        # print(f"[Worker {self.worker_id}] Shutdown complete.")
 
 
 # Per provar el worker individualment (opcional)

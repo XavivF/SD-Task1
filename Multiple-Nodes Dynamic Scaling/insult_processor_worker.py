@@ -27,10 +27,10 @@ class InsultProcessorWorker:
             self.connect_rabbitmq()  # Reintent
 
     def run(self):
-        print(f"[InsultProcessorWorker {self.worker_id}] Starting...")
+        # print(f"[InsultProcessorWorker {self.worker_id}] Starting...")
         self.connect_rabbitmq()
         if not self.channel:
-            print(f"[InsultProcessorWorker {self.worker_id}] Cannot start without RabbitMQ channel. Exiting.")
+            # print(f"[InsultProcessorWorker {self.worker_id}] Cannot start without RabbitMQ channel. Exiting.")
             return
 
         while not self.stop_event.is_set():
@@ -55,7 +55,7 @@ class InsultProcessorWorker:
                         print(f"[InsultProcessorWorker {self.worker_id}] Error NACKing message: {ne}")
                 time.sleep(1)
 
-        print(f"[InsultProcessorWorker {self.worker_id}] Stop event received. Shutting down.")
+        # print(f"[InsultProcessorWorker {self.worker_id}] Stop event received. Shutting down.")
         if self.connection and self.connection.is_open:
             self.connection.close()
-        print(f"[InsultProcessorWorker {self.worker_id}] Shutdown complete.")
+        # print(f"[InsultProcessorWorker {self.worker_id}] Shutdown complete.")
