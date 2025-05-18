@@ -88,10 +88,6 @@ def worker_filter_text(host, port, queue_name, results_queue, n_msg):
                 print(f"[Process {pid}] Redis connection error sending to queue: {e}", file=sys.stderr)
                 local_error_count += 1
                 break
-            except Exception as e:
-                # print(f"[Procés {pid}] Error enviant text a cua (Redis): {e}", file=sys.stderr) # Original comment left as code
-                local_error_count += 1
-
     except redis.exceptions.ConnectionError as e:
          print(f"[Process {pid}] Severe error connecting to Redis in worker_filter_text: {e}", file=sys.stderr)
          local_error_count += 1
@@ -106,7 +102,7 @@ def worker_filter_text(host, port, queue_name, results_queue, n_msg):
 
 # --- Main Test Function ---
 def run_stress_test(mode, host, port, insult_queue, work_queue, messages, num_service_instances):
-    print(f"Starting stress test (Redis direct interaction) in mode '{mode}'...")
+    print(f"Starting stress test (Redis) in mode '{mode}'...")
     print(f"Redis Host: {host}:{port}")
     print(f"Insult Queue (for add_insult mode): {insult_queue}")
     print(f"Filter Queue (for filter_text mode): {work_queue}")
@@ -160,7 +156,7 @@ def run_stress_test(mode, host, port, insult_queue, work_queue, messages, num_se
         except Exception as e:
             print(f"Error collecting results from queue: {e}", file=sys.stderr)
 
-    # We wait for the instances of the service to finish processing all of the messages.
+    # We wait for the instances of the service to finish processing all the messages.
     while int(redis_client.get(REDIS_COUNTER)) < messages:
         time.sleep(0.001)
 
@@ -171,6 +167,7 @@ def run_stress_test(mode, host, port, insult_queue, work_queue, messages, num_se
     # --- Phase 2: Get statistics from the service ---
     total_processed_count = int(redis_client.get(REDIS_COUNTER))
 
+    # --- Phase 3: Display results ---
     print("Stress Test (Redis with Multiprocessing) Finished")
     print(f"Total time sending requests: {actual_duration_client:.2f} seconds")
     print(f"Total time processing requests: {actual_duration_server:.2f} seconds")
@@ -195,7 +192,7 @@ def run_stress_test(mode, host, port, insult_queue, work_queue, messages, num_se
             print(f"Server processing throughput (requests/second): {service_throughput:.2f}")
     else:
         print("Could not retrieve service statistics")
-    print("\n--- Statistics (Per server throughput) ---")
+    print("\n--- Statistics (Per service instance throughput) ---")
     if total_processed_count != 0:
         if actual_duration_server > 0:
             service_throughput = total_processed_count / actual_duration_server
@@ -221,10 +218,10 @@ if __name__ == "__main__":
                         help=f"Name of the Redis list/queue for filtering texts (default: {DEFAULT_WORK_QUEUE})")
     parser.add_argument("-m", "--messages", type=int, required=True,
                         help=f"Number of messages to send")
-    parser.add_argument("-n", "--num-service-instances", type=int, default=1,
+    parser.add_argument("-n", "--num-instances", type=int, default=1,
                         help=f"Number of service instances to retrieve stats from (default: 1)", required=True)
 
     args = parser.parse_args()
 
     run_stress_test(args.mode, args.host, args.port, args.insult_queue, args.work_queue,
-                                args.messages, args.num_service_instances)
+                                args.messages, args.num_instances)
