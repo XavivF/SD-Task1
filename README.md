@@ -1,6 +1,34 @@
 # SD-Task1
 Scaling distributed Systems using direct and indirect communication middleware
 
+# Configuration of docker containers
+The following steps explain how to set up and run Redis and RabbitMQ containers using Docker:
+
+1. **Pull the Redis Image**:  
+Download the latest Redis image from Docker Hub.  
+
+```bash
+sudo docker pull redis
+```
+2. **Run the Redis Container**:
+Start a Redis container named redis in detached mode, exposing port 6379 for external access.
+
+```bash
+sudo docker run --name redis -d -p 6379:6379 redis
+```
+3. **Pull the RabbitMQ Image**:
+Download the RabbitMQ image with the management plugin from Docker Hub.
+
+```bash
+sudo docker pull rabbitmq:management
+```
+4. Run the RabbitMQ Container:
+Start a RabbitMQ container named rabbitmq-p in detached mode, exposing ports 5672 (for AMQP connections) and 15672 (for the management interface).
+
+```bash
+sudo docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:management
+```
+
 # How to Run the Different Tests
 
 ## Single-Node 
@@ -23,15 +51,15 @@ This will start the service listening on `localhost:8000`. You should see a "Ser
 
 #### 2. Start the Insult Filter:
 
-````
+```bash
 python3 InsultFilter.py
-````
+```
 This will start the filter service listening on `localhost:8010`. You should see a "Server is running..." message.
 
 #### 3. Start the Insult Subscriber:
-```` 
+```bash 
 python3 InsultSubscriber.py
-````
+```
 This will start the subscriber listening on `localhost:8001`. You should see a "Subscriber running on port 8001..." message.
 
 **Important:** Ensure all three services/subscriber are running before starting any client or test script.
@@ -39,9 +67,9 @@ This will start the subscriber listening on `localhost:8001`. You should see a "
 ### 4. Run the Client (Demonstration and Testing)
 
 Open another terminal window and run the client script. This client interacts with the services, adds initial insults, sends text to be filtered, and triggers the broadcast mechanism.
-````
+```bash
 python3 InsultClient.py
-````
+```
 The client will:
 * Add the subscriber (`InsultSubscriber.py`) to the service.
 * Add a predefined list of insults to both the Service and the Filter.
@@ -57,9 +85,9 @@ Observe the output in the terminals where the services and subscriber are runnin
 ### 5. Run the Stress Test
 
 The StressTest.py script is used to evaluate the performance of specific functionalities under load. Open a new terminal window to run it.
-````
+```bash
 python3 StressTest.py <mode> [options]
-````
+```
 **Arguments:**
 
 * `<mode>`: Specifies which functionality to test. Choose either add_insult or filter_text.
@@ -71,9 +99,9 @@ python3 StressTest.py <mode> [options]
 
 **Example:**
 
-````
+```bash
 python3 StressTest.py add_insult -d 30 -c 20
-````
+```
 
 The script will output the total time, total requests made by clients, total requests processed by the server (obtained via a method call), total errors, and calculated throughputs.
 
@@ -211,37 +239,37 @@ python3 StressTest.py add_insult -d 60 -c 50
 #### 1. Start the Name Server
 
 Pyro requires a Name Server to discover the services. You must start this first in a dedicated terminal window.
-````
+```bash
 python3 -m Pyro4.naming
-````
+```
 You should see output indicating the Name Server has started. Keep this terminal open.
 
 #### 2. Start the Insult Service:
 
 Open separate terminal windows for each service and the subscriber. Ensure the Pyro Name Server is running before starting these.
-````
+```bash
 python3 InsultService.py
-````
+```
 
 #### 3. Start the Filter Service:
-````
+```bash
 python3 InsultFilter.py
-````
+```
 This script will connect to the Name Server and register the service under the name pyro.filter.
 
 #### 4. Start the Insult Subscriber:
-````
+```bash
 python3 InsultSubscriber.py
-````
+```
 
 **Important:** Ensure the Name Server, the Insult Service, the Insult Filter, and the Insult Subscriber are all running before proceeding to the client or stress test.
 
 #### 5. Run the Client (Demonstration and Testing)
 
 Open another terminal window to run the client script. This client interacts with the services, adds initial insults, sends text to be filtered, and helps demonstrate the broadcast mechanism.
-````
+```bash
 python3 InsultClient.py
-````
+```
 The client will:
 * Automatically find the services via the Name Server.
 * Add a predefined list of insults to both the Service and the Filter.
@@ -256,9 +284,9 @@ Observe the output in the terminals where the services and subscriber are runnin
 #### 6. Running the Stress Test
 
 The StressTest.py script is designed to evaluate the performance of specific functionalities under load. Open a new terminal window to run it.
-````
+```bash
 python3 StressTest.py <mode> [options]
-````
+```
 **Arguments:**
 
 * `<mode>`: Specifies which functionality to test. Choose either add_insult or filter_text.
@@ -270,9 +298,9 @@ python3 StressTest.py <mode> [options]
 
 **Example:**
 
-````
+```bash
 python3 StressTest.py -c 30 filter_text
-````
+```
 The script will output the total time, total requests made by clients, total requests processed by the server (obtained via a method call), total errors, and calculated throughputs.
 
 **Note:** The Pyro Name Server and the relevant service (InsultService.py for add_insult mode, InsultFilter.py for filter_text mode) must be running before you execute StressTest.py. The InsultSubscriber.py is not directly involved in the current stress test modes, but it doesn't hurt to have it running.
@@ -392,7 +420,7 @@ python3 StressTest.py add_insult -d 30 -c 50 -u http://localhost:9000/RPC2
 - Ensure all server instances (InsultService.py, InsultFilter.py), the Load Balancer 
 (LoadBalancer.py), and the Subscriber (InsultSubscriber.py) are running before starting
 the InsultClient.py or StressTest.py.
-- For static scaling anaRlysis, you will typically run the StressTest.py with the same 
+- For static scaling analysis, you will typically run the StressTest.py with the same 
 configuration (duration, concurrency, mode) but with the Load Balancer configured to use
 a varying number of backend service/filter instances (e.g., 1, 2, 3 instances). Remember
 to restart the Load Balancer with the correct --service_urls and --filter_urls each time

@@ -34,14 +34,16 @@ class Insults:
         connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
         channel = connection.channel()
         channel.exchange_declare(exchange=self.channel_broadcast, exchange_type='fanout')
-
-        while True:
-            if self.insults_list:
-                insult = self.insult_me()
-                if insult is not None:
-                    print(f"Sending insult to subscribers: {insult}")
-                    channel.basic_publish(exchange=self.channel_broadcast, routing_key='', body=insult)
-            time.sleep(5)
+        try:
+            while True:
+                if self.insults_list:
+                    insult = self.insult_me()
+                    if insult is not None:
+                        print(f"Sending insult to subscribers: {insult}")
+                        channel.basic_publish(exchange=self.channel_broadcast, routing_key='', body=insult)
+                time.sleep(5)
+        except KeyboardInterrupt:
+            print("Stopping the broadcast process...")
 
     def listen_insults(self):
         connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
@@ -116,8 +118,8 @@ if __name__ == "__main__":
     finally:
         print("Terminating worker processes...")
         process_listen_insults.terminate()
-        process_notify_subscribers.start()
         process_listen_insults.join()
+        process_notify_subscribers.terminate()
         process_notify_subscribers.join()
         daemon.shutdown()
         print("Worker processes finished.")
