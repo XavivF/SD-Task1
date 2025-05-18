@@ -2,7 +2,7 @@ import argparse
 import Pyro4
 import sys
 import threading
-
+import redis
 @Pyro4.expose
 @Pyro4.behavior(instance_mode="single")
 class LoadBalancer:
@@ -15,6 +15,8 @@ class LoadBalancer:
         self.filter_rr = 0
         self.service_rr = 0
         self.lock = threading.Lock()
+        self.counter_key = "COUNTER"  # Key for Redis counter
+        self.client = redis.Redis(db=0, decode_responses=True)
 
     def get_proxies(self, service_names):
         for name in service_names:
@@ -39,6 +41,7 @@ class LoadBalancer:
                 service_proxy = self.insult_proxies[self.service_rr]
                 self.service_rr = (self.service_rr + 1) % len(self.insult_proxies)
             service_proxy.add_insult(insult)
+            self.client.incr(self.counter_key)  # INCR Redis Counter
             # print(f"Insult added: {insult} to {service_proxy._pyroUri}")
         except Exception as e:
             print(f"ERROR: Exception during adding insult: {e}", file=sys.stderr)
@@ -49,6 +52,7 @@ class LoadBalancer:
                 filter_proxy = self.filter_proxies[self.filter_rr]
                 self.filter_rr = (self.filter_rr + 1) % len(self.filter_proxies)
             result = filter_proxy.filter_service(text) # Call to the real InsultFilter method
+            self.client.incr(self.counter_key)  # INCR Redis Counter
             # print("Filtered text:", result)
             return result
         except Exception as e:
@@ -102,26 +106,6 @@ class LoadBalancer:
         print("WARNING: No filter services available for get_censored_texts_balanced.", file=sys.stderr)
         return None
 
-    def get_processed_count_filter(self):
-        total_count = 0
-        for proxy in self.filter_proxies:
-            try:
-                count = proxy.get_processed_count()
-                total_count += count
-            except Exception as e:
-                print(f"ERROR in load balancer (get_processed_count_filter): {e}", file=sys.stderr)
-        return total_count
-
-    def get_processed_count_service(self):
-        total_count = 0
-        for proxy in self.insult_proxies:
-            try:
-                count = proxy.get_processed_count()
-                total_count += count
-            except Exception as e:
-                print(f"ERROR in load balancer (get_processed_count_service): {e}", file=sys.stderr)
-        return total_count
-
     def notify_subscribers(self, insult):
         print(f"LB: Forwarding notify_subscribers for insult '{insult}' to all insult services.")
         errors = 0
@@ -134,6 +118,11 @@ class LoadBalancer:
         if errors > 0:
             print(f"LB: {errors} errors occurred during notify_subscribers_balanced.", file=sys.stderr)
 
+    # --- Method to get the total request count ---
+    def get_processed_count(self):
+        count = self.client.get(self.counter_key)
+        print(f"Load Balancer returning processed count: {count}")
+        return int(count) if count else 0
 
 def main():
     parser = argparse.ArgumentParser(description="Pyro Load Balancer")
@@ -154,6 +143,11 @@ def main():
         lb_instance = LoadBalancer(args.names_filter, args.names_service)
         uri = daemon.register(lb_instance)
         ns.register(load_balancer_pyro_name, uri)
+
+        print("LoadBalancer: Clearing initial Redis key (COUNTER)...")
+        lb_instance.client.delete(lb_instance.counter_key)
+        print("Redis keys cleared.")
+
         print(f"LoadBalancer registered as '{load_balancer_pyro_name}' with URI: {uri}")
         print(f"The LoadBalancer is ready. URI: {uri}")
     except Pyro4.errors.NamingError:

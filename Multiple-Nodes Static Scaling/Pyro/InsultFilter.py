@@ -9,12 +9,8 @@ class InsultFilter:
     def __init__(self):
         self.censored_Texts = []
         self.insults_List = ["beneit", "capsigrany", "ganàpia", "nyicris", "gamarús", "bocamoll", "murri", "dropo", "bleda", "xitxarel·lo"]
-        self.processed_requests_count = 0
-        self._lock = threading.Lock() # Lock to securely access the counter
 
     def add_insult(self, insult):
-        with self._lock:
-            self.processed_requests_count += 1
         if insult not in self.insults_List:
             self.insults_List.append(insult)
             # print(f"Insult added: {insult}")
@@ -33,18 +29,12 @@ class InsultFilter:
         return censored_text
 
     def filter_service(self, text):
-        with self._lock:
-            self.processed_requests_count += 1
         censored_text = self.filter_text(text)
         self.censored_Texts.append(censored_text)
         return censored_text.strip() # We add strip() to remove trailing spaces
 
     def get_censored_texts(self):
         return self.censored_Texts
-
-    def get_processed_count(self):
-        with self._lock:
-            return self.processed_requests_count
 
 def main():
     parser = argparse.ArgumentParser(description="Pyro Insult Filter")
