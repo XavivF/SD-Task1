@@ -1,11 +1,7 @@
-from multiprocessing import Value
 from xmlrpc.server import SimpleXMLRPCRequestHandler
 from xmlrpc.server import SimpleXMLRPCServer
 import argparse
 import sys
-
-# Global counter for processed requests
-processed_requests_counter = Value('i', 0)
 
 # Restrict to a particular path.
 class RequestHandler(SimpleXMLRPCRequestHandler):
@@ -20,14 +16,11 @@ args = parser.parse_args()
 port = args.port
 
 class InsultFilter:
-    def __init__(self, req_counter):
+    def __init__(self):
         self.insults = ["tonto", "lleig", "boig", "idiota", "estúpid", "inútil", "desastre", "fracassat", "covard", "mentider"]
         self.results = []   # censored text results
-        self.counter = req_counter
 
     def filter(self, text):
-        with self.counter.get_lock():
-            self.counter.value += 1
         censored_text = ""
         for word in text.split():
             if word in self.insults:
@@ -40,19 +33,11 @@ class InsultFilter:
         return censored_text
 
     def add_insult(self, insult):
-        with self.counter.get_lock():
-            self.counter.value += 1
         self.insults.append(insult)
         return f"Insult added: {insult}"
 
     def get_results(self):
         return self.results
-
-    def get_processed_count(self):
-        with self.counter.get_lock():
-            count =  self.counter.value
-        print(f"Instance on port {port} returning processed count: {count}")
-        return count
 
 # Create server
 try:
@@ -60,7 +45,7 @@ try:
                         requestHandler=RequestHandler) as server:
         server.register_introspection_functions()
 
-        insult_filter = InsultFilter(processed_requests_counter)
+        insult_filter = InsultFilter()
         server.register_instance(insult_filter)
 
         # Run the server's main loop

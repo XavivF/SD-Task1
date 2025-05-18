@@ -5,12 +5,13 @@ import random
 import argparse
 import sys
 import os
-
+import redis
 # Default URL for the Load Balancer
 LOAD_BALANCER_URL = "http://localhost:9000/RPC2"
+REDIS_COUNTER = 'COUNTER'
 
 DEFAULT_DURATION = 10  # Seconds
-DEFAULT_CONCURRENCY = 10 # Number of concurrent processes/clients
+DEFAULT_CONCURRENCY = 3 # Number of concurrent processes/clients
 
 # --- Data for tests ---
 INSULTS_TO_ADD = ["tonto", "lleig", "boig", "idiota", "estúpid", "inútil", "desastre", "fracassat", "covard", "mentider",
@@ -27,7 +28,7 @@ TEXTS_TO_FILTER = [
 
 # --- Worker Functions ---
 # The worker connects to the Load Balancer (LB) and uses a single proxy to it.
-def worker_add_insult(lb_url, results_queue, end_time):
+def worker_add_insult(lb_url, results_queue, n_msg):
     local_request_count = 0
     local_error_count = 0
     pid = os.getpid()
@@ -37,13 +38,13 @@ def worker_add_insult(lb_url, results_queue, end_time):
         # Create a proxy to the Load Balancer
         lb_proxy = xmlrpc.client.ServerProxy(lb_url, allow_none=True, verbose=False)
 
-        while time.time() < end_time:
+        while local_request_count < n_msg:
             try:
                 insult = random.choice(INSULTS_TO_ADD) + str(random.randint(1, 100000))
-                lb_proxy.add_insult(insult )
+                lb_proxy.add_insult(insult)
                 local_request_count += 1
             except Exception as e:
-                # print(f"[Process {pid}] Error adding insult (XML-RPC via LB): {e}", file=sys.stderr)
+                print(f"[Process {pid}] Error adding insult (XML-RPC via LB): {e}", file=sys.stderr)
                 local_error_count += 1
                 if isinstance(e, (OSError, xmlrpc.client.Fault)):
                      print(f"[Process {pid}] Connection or XML-RPC error via LB detected. Exiting worker for add_insult: {e}", file=sys.stderr)
@@ -55,7 +56,7 @@ def worker_add_insult(lb_url, results_queue, end_time):
     finally:
         results_queue.put((local_request_count, local_error_count))
 
-def worker_filter_text(lb_url, results_queue, end_time):
+def worker_filter_text(lb_url, results_queue, n_msg):
     local_request_count = 0
     local_error_count = 0
     pid = os.getpid()
@@ -64,7 +65,7 @@ def worker_filter_text(lb_url, results_queue, end_time):
     try:
         lb_proxy = xmlrpc.client.ServerProxy(lb_url, allow_none=True, verbose=False)
 
-        while time.time() < end_time:
+        while local_request_count < n_msg:
             try:
                 text = random.choice(TEXTS_TO_FILTER)
                 lb_proxy.filter(text)
@@ -82,24 +83,19 @@ def worker_filter_text(lb_url, results_queue, end_time):
     finally:
         results_queue.put((local_request_count, local_error_count))
 
-
 # --- Main Test Function ---
-def run_stress_test(mode, lb_url, duration, concurrency):
+def run_stress_test(mode, lb_url, messages, num_service_instances):
     print(f"Starting XML-RPC stress test in mode '{mode}' via Load Balancer...")
     print(f"Load Balancer URL: {lb_url}")
-    print(f"Duration: {duration} seconds")
-    print(f"Concurrency: {concurrency} processes")
     print("-" * 30)
 
     worker_function = None
-    get_count_method_name = None  # To store the name of the method to get counts from LB
+    get_count_method_name = "get_processed_count"  # To store the name of the method to get counts from LB
 
     if mode == 'add_insult':
         worker_function = worker_add_insult
-        get_count_method_name = "get_processed_count_service"  # Method in LB for InsultService counts
     elif mode == 'filter_text':
         worker_function = worker_filter_text
-        get_count_method_name = "get_processed_count_filter"  # Method in LB for InsultFilter counts
     else:
         print(f"Error: Mode '{mode}' not recognized. Valid modes are 'add_insult' or 'filter_text'.", file=sys.stderr)
         return
@@ -114,16 +110,22 @@ def run_stress_test(mode, lb_url, duration, concurrency):
         print("Please ensure the Load Balancer is running and accessible.")
         return
 
+    try:
+        redis_client = redis.Redis(db=0, decode_responses=True,
+                                   socket_connect_timeout=5, socket_timeout=5)
+    except redis.exceptions.ConnectionError as e:
+        print(f"Severe error connecting to Redis in run_stress_test: {e}", file=sys.stderr)
+        exit(1)
 
+    n_messages = messages // DEFAULT_CONCURRENCY
     results_queue = Queue()
     processes = []
     start_time = time.time()
-    end_time = start_time + duration
 
     # Create and start worker processes
-    print(f"Launching {concurrency} worker processes for mode '{mode}'...")
-    for _ in range(concurrency):
-        process = Process(target=worker_function, args=(lb_url, results_queue, end_time))
+    print(f"Launching {DEFAULT_CONCURRENCY} worker processes for mode '{mode}'...")
+    for _ in range(DEFAULT_CONCURRENCY):
+        process = Process(target=worker_function, args=(lb_url, results_queue, n_messages))
         processes.append(process)
         process.start()
 
@@ -132,7 +134,7 @@ def run_stress_test(mode, lb_url, duration, concurrency):
     for process in processes:
         process.join()
 
-    actual_duration = time.time() - start_time
+    actual_duration_client = time.time() - start_time
 
     # Collect local results from workers
     total_client_requests_sent = 0
@@ -142,6 +144,13 @@ def run_stress_test(mode, lb_url, duration, concurrency):
         total_client_requests_sent += local_req
         total_client_errors += local_err
 
+    total_messages = n_messages * DEFAULT_CONCURRENCY
+    # We wait for the instances of the service to finish processing all of the messages.
+    while int(redis_client.get(REDIS_COUNTER)) < total_messages:
+        time.sleep(0.001)
+
+    actual_duration_server = time.time() - start_time
+
     # Get the total number of requests processed by the servers via the LB
     total_server_processed_count = -1  # Default to an error value
     if lb_main_proxy and get_count_method_name:
@@ -149,11 +158,9 @@ def run_stress_test(mode, lb_url, duration, concurrency):
             # Dynamically get the correct count method from the LB proxy
             get_total_processed_count_func = getattr(lb_main_proxy, get_count_method_name)
             total_server_processed_count = get_total_processed_count_func()
-            print(
-                f"Successfully retrieved total processed count ({total_server_processed_count}) from LB using '{get_count_method_name}'.")
+            print(f"Successfully retrieved total processed count ({total_server_processed_count}) from LB using '{get_count_method_name}'.")
         except xmlrpc.client.Fault as f:
-            print(
-                f"XML-RPC Fault when calling '{get_count_method_name}' on Load Balancer: {f.faultString} (Code: {f.faultCode})",
+            print(f"XML-RPC Fault when calling '{get_count_method_name}' on Load Balancer: {f.faultString} (Code: {f.faultCode})",
                 file=sys.stderr)
         except AttributeError:
             print(f"Error: The method '{get_count_method_name}' was not found on the Load Balancer proxy.",
@@ -171,9 +178,8 @@ def run_stress_test(mode, lb_url, duration, concurrency):
     print(f"Stress Test (XML-RPC via Load Balancer) - Results\n")
     print(f"Test Mode: {mode}")
     print(f"Target URL (Load Balancer): {lb_url}")
-    print(f"Configured Duration: {duration:.2f} seconds")
-    print(f"Actual Test Duration: {actual_duration:.2f} seconds")
-    print(f"Concurrency (Processes): {concurrency}")
+    print(f"Total time sending requests: {actual_duration_client:.2f} seconds")
+    print(f"Total time processing requests: {actual_duration_server:.2f} seconds")
     print("-" * 30)
     print(f"Total Client Requests Sent (by workers): {total_client_requests_sent}")
     print(f"Total Client Errors (encountered by workers): {total_client_errors}")
@@ -184,17 +190,24 @@ def run_stress_test(mode, lb_url, duration, concurrency):
         print("Could not reliably get total server processed count from Load Balancer.")
 
     print("-" * 30)
-    if actual_duration > 0:
-        client_throughput = total_client_requests_sent / actual_duration
+    if actual_duration_client > 0:
+        client_throughput = total_client_requests_sent / actual_duration_client
         print(f"Client-side Throughput (requests/second): {client_throughput:.2f}")
 
         if total_server_processed_count >= 0:  # Only calculate if count is valid
-            server_throughput = total_server_processed_count / actual_duration
+            server_throughput = total_server_processed_count / actual_duration_server
             print(f"Server-side Throughput (processed requests/second via LB): {server_throughput:.2f}")
     else:
         print("Throughput: N/A (actual duration was zero or too short)")
+    print("\n--- Statistics (Per server throughput) ---")
+    if total_server_processed_count != 0:
+        if actual_duration_server > 0:
+            service_throughput = total_server_processed_count / actual_duration_server
+            print(f"Per server processing throughput (requests/second): {service_throughput / num_service_instances:.2f}")
 
     print("-" * 30)
+    if redis_client:
+        redis_client.close()
     return None
 
 
@@ -203,18 +216,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Stress Test Script (Multiprocessing) for XML-RPC via a Load Balancer",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("mode", choices=['add_insult', 'filter_text'],
-        help="The XML-RPC functionality to test ('add_insult' for InsultService, 'filter_text' for InsultFilter)."
-    )
-    parser.add_argument("-d", "--duration", type=int, default=DEFAULT_DURATION,
-        help="Test duration in seconds."
-    )
-    parser.add_argument("-c", "--concurrency", type=int, default=DEFAULT_CONCURRENCY,
-        help="Number of concurrent client processes."
-    )
+        help="The XML-RPC functionality to test ('add_insult' for InsultService, 'filter_text' for InsultFilter).")
+    parser.add_argument("-m", "--messages", type=int, required=True,
+                        help=f"Number of messages to send")
     parser.add_argument("-u", "--lb_url", type=str, default=LOAD_BALANCER_URL,
-        help="URL of the XML-RPC Load Balancer (e.g., http://localhost:9000/RPC2)."
-    )
-
+        help="URL of the XML-RPC Load Balancer (e.g., http://localhost:9000/RPC2).")
+    parser.add_argument("-n", "--num-service-instances", type=int, default=1, required=True
+                        help=f"Number of service instances to retrieve stats from (default: 1)")
     args = parser.parse_args()
 
-    run_stress_test(args.mode, args.lb_url, args.duration, args.concurrency)
+    run_stress_test(args.mode, args.lb_url, args.messages, args.num_service_instances)

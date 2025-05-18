@@ -3,6 +3,7 @@ from xmlrpc.server import SimpleXMLRPCRequestHandler, SimpleXMLRPCServer
 import argparse
 import threading
 import sys
+import redis
 
 class RequestHandler(SimpleXMLRPCRequestHandler):
     rpc_paths = ('/RPC2',)
@@ -17,6 +18,8 @@ class XmlrpcLoadBalancer:
         self.current_filter_index = 0
         self.service_lock = threading.Lock()
         self.filter_lock = threading.Lock()  # Lock to protect the index in round robin
+        self.counter_key = "COUNTER"  # Key for Redis counter
+        self.client = redis.Redis(db=0, decode_responses=True)
 
 
     def get_next_service_proxy(self):
@@ -39,6 +42,7 @@ class XmlrpcLoadBalancer:
     def add_insult(self, insult):
         try:
             proxy = self.get_next_service_proxy()
+            self.client.incr(self.counter_key)  # INCR Redis Counter
             # print(f"LB: Add insult '{insult}' to service: {proxy._XmlRpcClient__host_port_path}")
             return proxy.add_insult(insult)
         except Exception as e:
@@ -48,7 +52,8 @@ class XmlrpcLoadBalancer:
     def insult_me(self):
         try:
             proxy = self.get_next_service_proxy()
-            print(f"LB: Requesting insult from service: {proxy._XmlRpcClient__host_port_path}")
+            self.client.incr(self.counter_key)  # INCR Redis Counter
+            # print(f"LB: Requesting insult from service: {proxy._XmlRpcClient__host_port_path}")
             return proxy.insult_me()  # L'InsultService escollit notificarà els seus subscriptors.
         except Exception as e:
             print(f"ERROR on LB insult_me: {e}", file=sys.stderr)
@@ -70,6 +75,7 @@ class XmlrpcLoadBalancer:
     def filter(self, text):
         try:
             proxy = self.get_next_filter_proxy()
+            self.client.incr(self.counter_key)  # INCR Redis Counter
             # print(f"LB: Filtering text '{text}' via filter: {proxy._XmlRpcClient__host_port_path}")
             return proxy.filter(text)
         except Exception as e:
@@ -117,25 +123,10 @@ class XmlrpcLoadBalancer:
             print(f"LB: {errors} errors occurred during notify_subscribers_balanced.", file=sys.stderr)
 
     # --- Method to get the total request count ---
-    def get_processed_count_filter(self):
-        total_count = 0
-        for proxy in self.filter_proxies:
-            try:
-                count = proxy.get_processed_count()
-                total_count += count
-            except Exception as e:
-                print(f"ERROR obtaining count of filter backend: {e}", file=sys.stderr)
-        return total_count
-
-    def get_processed_count_service(self):
-        total_count = 0
-        for proxy in self.service_proxies:
-            try:
-                count = proxy.get_processed_count()
-                total_count += count
-            except Exception as e:
-                print(f"ERROR obtenint count of service backend: {e}", file=sys.stderr)
-        return total_count
+    def get_processed_count(self):
+        count = self.client.get(self.counter_key)
+        print(f"Load Balancer returning processed count: {count}")
+        return int(count) if count else 0
 
 # --- Load Balancer Server Configuration and Execution ---
 if __name__ == "__main__":
@@ -158,10 +149,12 @@ if __name__ == "__main__":
             # Register the load balancer instance
             server.register_instance(lb_instance)
 
-            # Register the key methods for performance testing
-            server.register_function(lb_instance.get_processed_count_service, "get_processed_count_service")
-            server.register_function(lb_instance.get_processed_count_service, "get_processed_count_service")
+            # Register the key method for performance testing
+            server.register_function(lb_instance.get_processed_count, "get_processed_count")
 
+            print("LoadBalancer: Clearing initial Redis key (COUNTER)...")
+            lb_instance.client.delete(lb_instance.counter_key)
+            print("Redis keys cleared.")
 
             print(f"Load Balancer running on localhost:{args.port}...")
             print(f"Filter servers: {args.filter_urls}")
@@ -169,6 +162,7 @@ if __name__ == "__main__":
             server.serve_forever()
     except KeyboardInterrupt:
         print("\nShutting down LoadBalancer...")
+        lb_instance.client.close()
         sys.exit(0)
     except PermissionError:
         print(f"Error: Could not bind to port {args.port}. Permission denied. Try a port above 1024.", file=sys.stderr)
