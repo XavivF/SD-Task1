@@ -1,4 +1,6 @@
 import argparse
+
+import Pyro4
 import pika
 import time
 import random
@@ -81,6 +83,28 @@ if __name__ == "__main__":
     # Create the service instance with the shared resources
     insults_service_instance = Insults(shared_insults)
 
+    # --- Set up Pyro server ---
+    print("Starting Pyro Insult Service for remote access...")
+    try:
+        daemon = Pyro4.Daemon()  # Create the Pyro daemon
+        ns = Pyro4.locateNS()  # Locate the name server
+    except Pyro4.errors.NamingError as e:
+        # You need to have the name server running: python3 -m Pyro4.naming
+        print("Error locating the name server. Make sure it is running.")
+        print("Command: python3 -m Pyro4.naming")
+        exit(1)
+
+    # Register the Insults service instance with the daemon and name server
+    # Clients will connect to this name 'rabbit.counter'
+    uri = daemon.register(insults_service_instance)
+    try:
+        ns.register(f"rabbit.service.{args.instance_id}", uri)
+        print(f"Service registered with the name server as 'rabbit.service.{args.instance_id}'")
+    except Pyro4.errors.NamingError as e:
+        print(f"Error registering the service with the name server: {e}")
+        exit(1)
+
+
     print("InsultService: Clearing initial Redis keys (INSULTS_COUNTER)...")
     insults_service_instance.client.delete(insults_service_instance.counter_key)
     print("Redis keys cleared.")
@@ -95,8 +119,7 @@ if __name__ == "__main__":
     process_notify_subscribers.start()
 
     try:
-        while True:
-            time.sleep(0.1)
+        daemon.requestLoop()
     except KeyboardInterrupt:
         print("Shutting down...")
     finally:
@@ -105,5 +128,6 @@ if __name__ == "__main__":
         process_notify_subscribers.start()
         process_listen_insults.join()
         process_notify_subscribers.join()
+        daemon.shutdown()
         print("Worker processes finished.")
         print("Exiting main program.")
