@@ -157,7 +157,8 @@ def run_stress_test(mode, host, port, insult_queue, work_queue, messages, num_se
             print(f"Error collecting results from queue: {e}", file=sys.stderr)
 
     # We wait for the instances of the service to finish processing all the messages.
-    while int(redis_client.get(REDIS_COUNTER)) < messages:
+    total_messages = n_messages * DEFAULT_CONCURRENCY
+    while int(redis_client.get(REDIS_COUNTER)) < total_messages:
         time.sleep(0.001)
 
     actual_duration_server = time.time() - start_time

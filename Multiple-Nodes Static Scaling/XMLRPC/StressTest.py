@@ -11,7 +11,7 @@ LOAD_BALANCER_URL = "http://localhost:9000/RPC2"
 REDIS_COUNTER = 'COUNTER'
 
 DEFAULT_DURATION = 10  # Seconds
-DEFAULT_CONCURRENCY = 3 # Number of concurrent processes/clients
+DEFAULT_CONCURRENCY = 5 # Number of concurrent processes/clients
 
 # --- Data for tests ---
 INSULTS_TO_ADD = ["tonto", "lleig", "boig", "idiota", "estúpid", "inútil", "desastre", "fracassat", "covard", "mentider",
@@ -221,7 +221,7 @@ if __name__ == "__main__":
                         help=f"Number of messages to send")
     parser.add_argument("-u", "--lb_url", type=str, default=LOAD_BALANCER_URL,
         help="URL of the XML-RPC Load Balancer (e.g., http://localhost:9000/RPC2).")
-    parser.add_argument("-n", "--num-service-instances", type=int, default=1, required=True
+    parser.add_argument("-n", "--num-service-instances", type=int, default=1, required=True,
                         help=f"Number of service instances to retrieve stats from (default: 1)")
     args = parser.parse_args()
 
