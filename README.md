@@ -801,3 +801,110 @@ python3 StressTest.py add_insult -d 15 -c 5
 starting the Load Balancer.
 
 ## Multiple-Nodes Dynamic Scaling
+#### 1.Start the Pyro Name Server:
+
+Make sure that the Redis and RabbitMQ containers are running. The Pyro4 Name Server is essential for the system to work, as components find each other through it.
+
+```bash
+docker start redis
+docker start rabbitmq
+```
+
+Open a terminal and run the Pyro4 naming server. This must be running before you start the main launcher.
+
+```bash
+python -m Pyro4.naming
+```
+
+
+#### 2. Start the Main Launcher:
+
+Open a new terminal and run the main_launcher.py script. This script starts the ScalerManager (which dynamically manages worker processes) and the InsultService components (including the broadcaster).
+
+```bash
+    python main_launcher.py
+```
+
+This terminal will show output from the ScalerManager's main loop and worker scaling decisions.
+
+#### 3. Start an Insult Subscriber (Optional):
+
+Open another terminal and run insult_subscriber.py. This will connect to RabbitMQ and print any insults broadcast by the InsultService.
+
+```bash
+python insult_subscriber.py
+```
+
+The core system (ScalerManager, InsultService, and dynamically scaled workers) should now be running.
+
+#### 4. Running the Stress Test
+
+The stress_test.py script is used to generate load on the system by sending a specified number of messages to either the text filtering queue or the insult processing queue.
+
+Execute the Stress Test Script:
+
+Open a new terminal and run stress_test.py. You must provide the total number of messages to send and the mode (which part of the system to test).
+
+To test the text filtering (InsultFilterWorker pool):
+
+```bash
+python stress_test.py filter_text -m <number_of_messages>
+```
+
+Replace <number_of_messages> with the desired total number of texts to send (e.g., 10000, 50000).
+
+To test the insult processing (InsultProcessorWorker pool):
+
+```bash
+python stress_test.py add_insult -m <number_of_messages>
+```
+
+Replace <number_of_messages> with the desired total number of insults to send.
+
+Example: To send 100,000 texts to the filter:
+
+```bash
+python stress_test.py filter_text -m 100000
+```
+
+The script will:
+- Connect to the ScalerManager via Pyro.
+- Reset the processed counter in Redis.
+- Start multiple concurrent processes (default FIXED_CONCURRENCY_LEVEL in stress_test.py) to send messages to the specified RabbitMQ queue.
+- Wait for the system's workers to process the sent messages by monitoring the processed counter in Redis (via the ScalerManager).
+- Calculate and report the worker processing throughput.
+- Fetch and display final statistics from the ScalerManager.
+
+#### 5. Monitoring (Optional)
+
+You can use the insult_client.py script to interact with the running system and get information:
+
+Get all insults stored in Redis:
+
+```bash
+python insult_client.py --get-insults
+```
+
+Get statistics from the ScalerManager (including queue lengths and active workers):
+
+```bash
+python insult_client.py --get-scaler-stats
+```
+
+Get a sample of censored texts from Redis:
+
+```bash
+python insult_client.py --get-censored-sample
+```
+
+Send a single text to the filter:
+
+```bash
+python insult_client.py --send-text "This is a test message."
+```
+
+Add a single insult to the processing queue:
+
+```bash
+python insult_client.py --add-insult "new_test_insult"
+```
