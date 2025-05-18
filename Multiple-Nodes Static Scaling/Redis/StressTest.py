@@ -170,8 +170,8 @@ def run_stress_test(mode, host, port, insult_queue, work_queue, messages, num_se
 
     # --- Phase 3: Display results ---
     print("Stress Test (Redis with Multiprocessing) Finished")
-    print(f"Total time sending requests: {actual_duration_client:.2f} seconds")
-    print(f"Total time processing requests: {actual_duration_server:.2f} seconds")
+    print(f"Total time sending requests: {actual_duration_client:.3f} seconds")
+    print(f"Total time processing requests: {actual_duration_server:.3f} seconds")
 
 
     print("--- Client Results (Requests Sent by Stress Test Processes) ---")
@@ -180,7 +180,7 @@ def run_stress_test(mode, host, port, insult_queue, work_queue, messages, num_se
 
     if actual_duration_server > 0:
         client_sending_throughput = total_client_sent_count / actual_duration_client
-        print(f"Client sending throughput (commands/second): {client_sending_throughput:.2f}")
+        print(f"Client sending throughput (commands/second): {client_sending_throughput:.3f}")
     else:
         print("Client sending throughput: N/A (duration too short)")
 
@@ -190,14 +190,14 @@ def run_stress_test(mode, host, port, insult_queue, work_queue, messages, num_se
         print(f"Server processed count: {total_processed_count}")
         if actual_duration_server > 0:
             service_throughput = total_processed_count / actual_duration_server
-            print(f"Server processing throughput (requests/second): {service_throughput:.2f}")
+            print(f"Server processing throughput (requests/second): {service_throughput:.3f}")
     else:
         print("Could not retrieve service statistics")
     print("\n--- Statistics (Per service instance throughput) ---")
     if total_processed_count != 0:
         if actual_duration_server > 0:
             service_throughput = total_processed_count / actual_duration_server
-            print(f"Per server processing throughput (requests/second): {service_throughput/num_service_instances:.2f}")
+            print(f"Per server processing throughput (requests/second): {service_throughput/num_service_instances:.3f}")
 
     print("-" * 30)
 

@@ -98,11 +98,11 @@ def run_stress_test(mode, host, insult_exchange, work_queue, messages, num_servi
     if mode == 'add_insult':
         worker_function = worker_add_insult
         target_queue_name = insult_exchange
-    elif mode == 'filter_service':  # Use 'filter_service' to match service logic intent
+    elif mode == 'filter_text':  # Use 'filter_text' to match service logic intent
         worker_function = worker_filter_text  # This worker sends text to the work_queue
         target_queue_name = work_queue
     else:
-        print(f"Error: Mode '{mode}' unrecognized. Options: 'add_insult', 'filter_service'.", file=sys.stderr)
+        print(f"Error: Mode '{mode}' unrecognized. Options: 'add_insult', 'filter_text'.", file=sys.stderr)
         exit(1)
 
     try:
@@ -152,8 +152,8 @@ def run_stress_test(mode, host, insult_exchange, work_queue, messages, num_servi
     # --- Phase 3: Display results ---
     print("-" * 30)
     print("Stress Test (Redis with Multiprocessing) Finished")
-    print(f"Total time sending requests: {actual_duration_client:.2f} seconds")
-    print(f"Total time processing requests: {actual_duration_server:.2f} seconds")
+    print(f"Total time sending requests: {actual_duration_client:.3f} seconds")
+    print(f"Total time processing requests: {actual_duration_server:.3f} seconds")
 
 
     print("--- Client Results (Requests Sent by Stress Test Processes) ---")
@@ -162,7 +162,7 @@ def run_stress_test(mode, host, insult_exchange, work_queue, messages, num_servi
 
     if actual_duration_server > 0:
         client_throughput = total_sent_count / actual_duration_client
-        print(f"Client sending throughput (messages/second): {client_throughput:.2f}")
+        print(f"Client sending throughput (messages/second): {client_throughput:.3f}")
     else:
         print("Client throughput: N/A (duration too short)")
 
@@ -171,7 +171,7 @@ def run_stress_test(mode, host, insult_exchange, work_queue, messages, num_servi
         print(f"Server processed count: {total_processed_count}")
         if actual_duration_server > 0:
             server_throughput = total_processed_count / actual_duration_server
-            print(f"Server throughput (requests/second): {server_throughput:.2f}")
+            print(f"Server throughput (requests/second): {server_throughput:.3f}")
     else:
         print("Could not retrieve service statistics.")
 
@@ -179,15 +179,15 @@ def run_stress_test(mode, host, insult_exchange, work_queue, messages, num_servi
     if total_processed_count != 0:
         if actual_duration_server > 0:
             service_throughput = total_processed_count / actual_duration_server
-            print(f"Per server processing throughput (requests/second): {service_throughput/num_service_instances:.2f}")
+            print(f"Per server processing throughput (requests/second): {service_throughput/num_service_instances:.3f}")
 
     print("-" * 30)
 
 # --- Argument Parsing and Execution ---
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Stress Test Script for Insult Services via RabbitMQ ")
-    parser.add_argument("mode", choices=['add_insult', 'filter_service'],
-                        help="The functionality to test ('add_insult' or 'filter_service')")
+    parser.add_argument("mode", choices=['add_insult', 'filter_text'],
+                        help="The functionality to test ('add_insult' or 'filter_text')")
     parser.add_argument("--host", default=DEFAULT_RABBIT_HOST,
                         help=f"RabbitMQ server host (default: {DEFAULT_RABBIT_HOST})")
     parser.add_argument("--insult-queue", default=DEFAULT_INSULT_QUEUE,

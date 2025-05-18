@@ -116,8 +116,8 @@ def run_stress_test(mode, ns_host, ns_port, messages, num_service_instances):
 
     print("\n--- Test Results ---")
     print(f"Pyro Stress Test Finished")
-    print(f"Total time sending requests: {actual_duration_client:.2f} seconds")
-    print(f"Total time processing requests: {actual_duration_server:.2f} seconds")
+    print(f"Total time sending requests: {actual_duration_client:.3f} seconds")
+    print(f"Total time processing requests: {actual_duration_server:.3f} seconds")
     print(f"Total client requests sent: {total_client_requests_sent}")
     print(f"Total client errors: {total_error_count}")
 
@@ -129,16 +129,16 @@ def run_stress_test(mode, ns_host, ns_port, messages, num_service_instances):
 
     if actual_duration_client > 0:
         client_throughput = total_client_requests_sent / actual_duration_client
-        print(f"Client throughput (requests/second): {client_throughput:.2f}")
+        print(f"Client throughput (requests/second): {client_throughput:.3f}")
 
         if server_processed_count >= 0:
              server_throughput = server_processed_count / actual_duration_server
-             print(f"Server throughput (requests/second): {server_throughput:.2f}")
+             print(f"Server throughput (requests/second): {server_throughput:.3f}")
         if server_processed_count != 0:
             if actual_duration_server > 0:
                 service_throughput = server_processed_count / actual_duration_server
                 print(
-                    f"Per server processing throughput (requests/second): {service_throughput / num_service_instances:.2f}")
+                    f"Per server processing throughput (requests/second): {service_throughput / num_service_instances:.3f}")
 
     else:
         print("Performance: N/A (duration too short)")

@@ -45,6 +45,7 @@ def worker_add_insult(server_url, results_queue, end_time):
                 # Add a number to ensure they are "new"
                 server_proxy.add_insult(insult + str(random.randint(1, 10000)))
                 local_request_count += 1
+
             except Exception as e:
                 # print(f"[Process {pid}] Error adding insult (XML-RPC): {e}", file=sys.stderr)
                 local_error_count += 1
