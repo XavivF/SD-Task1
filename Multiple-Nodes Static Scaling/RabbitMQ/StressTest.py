@@ -5,12 +5,11 @@ import random
 import argparse
 import sys
 import os
-
 import redis
 
 # --- Configuration  ---
 DEFAULT_RABBIT_HOST = 'localhost'
-DEFAULT_INSULT_EXCHANGE = 'insults_exchange'    # Default RabbitMQ queue for adding insults
+DEFAULT_INSULT_QUEUE = 'add_insult_queue'    # Default RabbitMQ queue for adding insults
 DEFAULT_TEXT_QUEUE = 'text_queue'           # Default RabbitMQ queue for filtering work
 DEFAULT_CONCURRENCY = 5                    # Default number of concurrent processes/clients
 REDIS_COUNTER = "COUNTER"                  # Redis key for counting processed messages
@@ -29,7 +28,7 @@ TEXTS_TO_FILTER = [
 
 
 # --- Worker Functions (Send load to RabbitMQ) --
-def worker_add_insult(host, exchange_name, results_queue, n_msg):
+def worker_add_insult(host, queue_name, results_queue, n_msg):
     local_request_count = 0
     local_error_count = 0
     connection = None
@@ -38,11 +37,11 @@ def worker_add_insult(host, exchange_name, results_queue, n_msg):
         connection_params = pika.ConnectionParameters(host)
         connection = pika.BlockingConnection(connection_params)
         channel = connection.channel()
-        channel.exchange_declare(exchange=exchange_name, exchange_type='fanout')
+        channel.queue_declare(queue=queue_name)
         while local_request_count < n_msg:
             try:
                 insult = random.choice(INSULTS_TO_ADD) + str(random.randint(1, 10000))
-                channel.basic_publish(exchange=exchange_name, routing_key='', body=insult.encode('utf-8'))
+                channel.basic_publish(exchange='', routing_key=queue_name, body=insult.encode('utf-8'))
                 local_request_count += 1
             except pika.exceptions.AMQPConnectionError as e:
                  print(f"[Process {pid}] Connection error sending insult: {e}", file=sys.stderr)
@@ -191,8 +190,8 @@ if __name__ == "__main__":
                         help="The functionality to test ('add_insult' or 'filter_service')")
     parser.add_argument("--host", default=DEFAULT_RABBIT_HOST,
                         help=f"RabbitMQ server host (default: {DEFAULT_RABBIT_HOST})")
-    parser.add_argument("--insult-exchange", default=DEFAULT_INSULT_EXCHANGE,
-                        help=f"RabbitMQ exchange name for adding insults (default: {DEFAULT_INSULT_EXCHANGE})")
+    parser.add_argument("--insult-queue", default=DEFAULT_INSULT_QUEUE,
+                        help=f"RabbitMQ exchange name for adding insults (default: {DEFAULT_INSULT_QUEUE})")
     parser.add_argument("--work-queue", default=DEFAULT_TEXT_QUEUE,
                         help=f"RabbitMQ queue name for filtering texts (default: {DEFAULT_TEXT_QUEUE})")
     parser.add_argument("-m", "--messages", type=int, required=True,
@@ -203,4 +202,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Call the main function with the parsed arguments
-    run_stress_test(args.mode, args.host, args.insult_exchange, args.work_queue, args.messages, args.num_instances)
+    run_stress_test(args.mode, args.host, args.insult_queue, args.work_queue, args.messages, args.num_instances)
