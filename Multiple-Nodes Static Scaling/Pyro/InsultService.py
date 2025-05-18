@@ -10,12 +10,8 @@ class InsultService:
     def __init__(self):
         self.insults_List = []
         self.subscribers = []
-        self.processed_requests_count = 0
-        self._lock = threading.Lock() # Lock to securely access the counter
 
     def add_insult(self, insult):
-        with self._lock:
-            self.processed_requests_count += 1
         if insult not in self.insults_List:
             self.insults_List.append(insult)
             # print(f"Insult added: {insult} Count: {self.processed_requests_count}")
@@ -47,10 +43,6 @@ class InsultService:
                 subscriber.receive_insult(insult)
             except Pyro4.errors.CommunicationError:
                 print("Failed to contact a subscriber.")
-
-    def get_processed_count(self):
-        with self._lock:
-            return self.processed_requests_count
 
 
 def main():
