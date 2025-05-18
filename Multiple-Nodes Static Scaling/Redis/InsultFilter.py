@@ -6,7 +6,7 @@ import time
 
 @Pyro4.behavior(instance_mode="single")
 class InsultFilter:
-    def __init__(self, filter_counter, redis_host, redis_port):
+    def __init__(self, redis_host, redis_port):
         self.insultSet = "INSULTS"
         self.censoredTextsSet = "RESULTS"
         self.workQueue = "Work_queue"
@@ -77,7 +77,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print("Starting InsultFilter...")
 
-    insult_filter = InsultFilter(filtered_requests_counter, args.redis_host, args.redis_port)     # Create the InsultFilter instance
+    insult_filter = InsultFilter(args.redis_host, args.redis_port)     # Create the InsultFilter instance
 
     # --- Set up Pyro server ---
     print("Starting Pyro InsultFilter for remote access...")
@@ -105,6 +105,7 @@ if __name__ == "__main__":
     insult_filter.client.delete(insult_filter.insultSet)
     insult_filter.client.delete(insult_filter.censoredTextsSet)
     insult_filter.client.delete(insult_filter.workQueue)
+    insult_filter.client.delete(insult_filter.counter_key)
     print("Redis keys cleared.")
 
     # --- Start background processes for InsultFilter ---
