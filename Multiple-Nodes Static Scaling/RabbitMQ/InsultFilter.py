@@ -1,6 +1,4 @@
 import argparse
-import time
-
 import Pyro4
 import pika
 from multiprocessing import Manager, Process
@@ -12,15 +10,8 @@ class InsultFilter:
         self.insults_list = shared_insult_list  # list of insults
         self.censored_texts = shared_censored_texts # list for censored texts
         self.text_queue = "text_queue"
-        self.insults_exchange = "insults_exchange"
         self.counter_key = "COUNTER"
         self.client = redis.Redis(db=0, decode_responses=True)
-
-    def add_insult(self, insult):
-        self.client.incr(self.counter_key)
-        if insult not in self.insults_list:
-            self.insults_list.append(insult)
-            print(f"Insult added: {insult}")
 
     def filter(self, text):
         censored_text = ""
@@ -36,6 +27,7 @@ class InsultFilter:
         connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
         channel = connection.channel()
         channel.queue_declare(queue=self.text_queue)
+        channel.basic_qos(prefetch_count=1)
 
         def callback(ch, method, properties, body):
             text = body.decode('utf-8')
@@ -47,30 +39,6 @@ class InsultFilter:
 
         channel.basic_consume(queue=self.text_queue, on_message_callback=callback, auto_ack=True)
         print(f"Waiting for texts to censor at {self.text_queue}...")
-        channel.start_consuming()
-
-    def listen_insults(self):
-        connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
-        channel = connection.channel()
-
-        # Declare the same fanout exchange as the publisher
-        channel.exchange_declare(exchange=self.insults_exchange, exchange_type='fanout')
-
-        # Declare a unique, temporary queue for this worker
-        # queue='' generates a unique name, exclusive=True deletes the queue when connection closes
-        unique_queue = channel.queue_declare(queue='', exclusive=True)
-        unique_queue_name = unique_queue.method.queue
-
-        # Bind the worker's queue to the fanout exchange
-        channel.queue_bind(exchange=self.insults_exchange, queue=unique_queue_name)
-
-        def callback(ch, method, properties, body):
-            insult = body.decode('utf-8')
-            # print(f"Received insult: {insult}")
-            self.add_insult(insult)
-
-        channel.basic_consume(queue=unique_queue_name, on_message_callback=callback, auto_ack=True)
-        # print(f"Waiting for messages at {self.channel_insults}...")
         channel.start_consuming()
 
     def get_results(self):
@@ -89,6 +57,11 @@ if __name__ == "__main__":
     manager = Manager()
     # Create a shared list for insults
     shared_insults = manager.list()
+    initial_insults = ["tonto", "lleig", "boig", "idiota", "estúpid", "inútil", "desastre", "fracassat", "covard",
+                       "mentider","beneit", "capsigrany", "ganàpia", "nyicris", "gamarús", "bocamoll", "murri",
+                       "dropo", "bleda", "xitxarel·lo"]
+    shared_insults.extend(initial_insults)
+
     # Create a shared list for censored texts
     shared_texts = manager.list()
     # Create the service instance with the shared resources
@@ -119,11 +92,9 @@ if __name__ == "__main__":
     filter_service_instance.client.delete(filter_service_instance.counter_key)
     print("Redis keys cleared.")
 
-    process_listen_insults = Process(target=filter_service_instance.listen_insults)
     process_filter_service = Process(target=filter_service_instance.filter_service)
 
     # Start the worker processes
-    process_listen_insults.start()
     process_filter_service.start()
     try:
         daemon.requestLoop()
@@ -131,9 +102,7 @@ if __name__ == "__main__":
         print("Shutting down...")
     finally:
         print("Terminating worker processes...")
-        process_listen_insults.terminate()
         process_filter_service.terminate()
-        process_listen_insults.join()
         process_filter_service.join()
         daemon.shutdown()
         print("Worker processes finished.")

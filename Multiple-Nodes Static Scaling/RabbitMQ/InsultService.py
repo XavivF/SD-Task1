@@ -1,5 +1,4 @@
 import argparse
-
 import Pyro4
 import pika
 import time
@@ -9,8 +8,8 @@ import redis
 
 class Insults:
     def __init__(self, shared_insults_list):
-        self.insults_exchange = "insults_exchange"
         self.channel_broadcast = "Insults_broadcast"
+        self.add_insult_queue = "add_insult_queue"  # Define the work queue name
         self.insults_list = shared_insults_list  # Is a shared list
         self.counter_key = "COUNTER"  # Key for Redis counter
         self.client = redis.Redis(db=0, decode_responses=True)
@@ -50,23 +49,15 @@ class Insults:
         connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
         channel = connection.channel()
 
-        # Declare the same fanout exchange as the publisher
-        channel.exchange_declare(exchange=self.insults_exchange, exchange_type='fanout')
-
-        # Declare a unique, temporary queue for this worker
-        # queue='' generates a unique name, exclusive=True deletes the queue when connection closes
-        unique_queue = channel.queue_declare(queue='', exclusive=True)
-        unique_queue_name = unique_queue.method.queue
-
-        # Bind the worker's queue to the fanout exchange
-        channel.queue_bind(exchange=self.insults_exchange, queue=unique_queue_name)
+        channel.queue_declare(queue=self.add_insult_queue)
+        channel.basic_qos(prefetch_count=1)
 
         def callback(ch, method, properties, body):
             insult = body.decode('utf-8')
             # print(f"Received insult: {insult}")
             self.add_insult(insult)
 
-        channel.basic_consume(queue=unique_queue_name, on_message_callback=callback, auto_ack=True)
+        channel.basic_consume(queue=self.add_insult_queue, on_message_callback=callback, auto_ack=True)
         # print(f"Waiting for messages at {self.channel_insults}...")
         channel.start_consuming()
 

@@ -569,7 +569,7 @@ python3 -m Pyro4.naming
 #### 3. Start Insult Service Instances
 
 Run one or more instances of the InsultService.py. These instances will consume insults from a RabbitMQ 
-fanout exchange (insults_exchange) and publish random insults to another RabbitMQ fanout exchange 
+queue and publish random insults to another RabbitMQ fanout exchange 
 (Insults_broadcast). Each instance needs a unique --instance-id for Pyro4 registration.
 ```bash
 python3 InsultService.py --instance-id <id_service_1>
@@ -646,7 +646,7 @@ Once running, you can use the interactive commands in the client's terminal:
 #### 7. Run the Stress Test (Performance Analysis)
 
 The StressTest.py script for RabbitMQ is used for performance analysis. It uses multiprocessing to push a 
-high volume of messages directly to the relevant RabbitMQ queues/exchanges (insults_exchange or text_queue). 
+high volume of messages directly to the relevant RabbitMQ queues (insult_queue or text_queue). 
 After the test duration, it connects to the Pyro4 Name Server to retrieve the total processed counts from 
 the running service/filter instances specified by their IDs.
 
@@ -655,11 +655,11 @@ python3 StressTest.py <mode> [options]
 ```
 
 **Arguments**:
-* mode: Choose either add_insult to test the Insult Service's processing of the insults_exchange or 
-filter_text` to test the Insult Filter's processing of the text_queue.
+* mode: Choose either add_insult to test the Insult Service's processing of the insult_queue or 
+filter_text to test the Insult Filter's processing of the text_queue.
 * -m, --messages: Number of messages to send.
 * --host: RabbitMQ server host (default: localhost).
-* --insult-exchange: Name of the RabbitMQ exchange for publishing insults (default: insults_exchange).
+* --insult-queue: Name of the RabbitMQ queue for publishing insults (default: insult_queue).
 * --work-queue: Name of the RabbitMQ queue for filtering texts (default: text_queue).
 * -n, --num-instances: Required. The total number of backend service/filter instances (InsultService.py or 
 InsultFilter.py, depending on the mode) that are running.
