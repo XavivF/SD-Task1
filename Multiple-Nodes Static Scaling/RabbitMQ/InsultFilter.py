@@ -1,4 +1,5 @@
 import argparse
+import time
 import pika
 from multiprocessing import Manager, Process
 import redis
@@ -96,17 +97,22 @@ if __name__ == "__main__":
     print("Redis keys cleared.")
 
     process_listen_insults = Process(target=filter_service_instance.listen_insults)
+    process_filter_service = Process(target=filter_service_instance.filter_service)
 
     # Start the worker processes
     process_listen_insults.start()
+    process_filter_service.start()
     try:
-        filter_service_instance.filter_service()
+        while True:
+            time.sleep(0.1)
     except KeyboardInterrupt:
         print("Shutting down...")
     finally:
         print("Terminating worker processes...")
         process_listen_insults.terminate()
+        process_filter_service.terminate()
         process_listen_insults.join()
+        process_filter_service.join()
         print("Worker processes finished.")
         print("Exiting main program.")
 
