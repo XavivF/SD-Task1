@@ -178,8 +178,8 @@ def run_stress_test(mode, lb_url, messages, num_service_instances):
     print(f"Stress Test (XML-RPC via Load Balancer) - Results\n")
     print(f"Test Mode: {mode}")
     print(f"Target URL (Load Balancer): {lb_url}")
-    print(f"Total time sending requests: {actual_duration_client:.2f} seconds")
-    print(f"Total time processing requests: {actual_duration_server:.2f} seconds")
+    print(f"Total time sending requests: {actual_duration_client:.3f} seconds")
+    print(f"Total time processing requests: {actual_duration_server:.3f} seconds")
     print("-" * 30)
     print(f"Total Client Requests Sent (by workers): {total_client_requests_sent}")
     print(f"Total Client Errors (encountered by workers): {total_client_errors}")
@@ -192,18 +192,18 @@ def run_stress_test(mode, lb_url, messages, num_service_instances):
     print("-" * 30)
     if actual_duration_client > 0:
         client_throughput = total_client_requests_sent / actual_duration_client
-        print(f"Client-side Throughput (requests/second): {client_throughput:.2f}")
+        print(f"Client-side Throughput (requests/second): {client_throughput:.3f}")
 
         if total_server_processed_count >= 0:  # Only calculate if count is valid
             server_throughput = total_server_processed_count / actual_duration_server
-            print(f"Server-side Throughput (processed requests/second via LB): {server_throughput:.2f}")
+            print(f"Server-side Throughput (processed requests/second via LB): {server_throughput:.3f}")
     else:
         print("Throughput: N/A (actual duration was zero or too short)")
     print("\n--- Statistics (Per server throughput) ---")
     if total_server_processed_count != 0:
         if actual_duration_server > 0:
             service_throughput = total_server_processed_count / actual_duration_server
-            print(f"Per server processing throughput (requests/second): {service_throughput / num_service_instances:.2f}")
+            print(f"Per server processing throughput (requests/second): {service_throughput / num_service_instances:.3f}")
 
     print("-" * 30)
     if redis_client:
