@@ -1,7 +1,7 @@
 import redis
 import argparse
 import Pyro4
-from multiprocessing import Value, Process
+from multiprocessing import Process
 import time
 
 @Pyro4.behavior(instance_mode="single")
@@ -10,12 +10,11 @@ class InsultFilter:
         self.insultSet = "INSULTS"
         self.censoredTextsSet = "RESULTS"
         self.workQueue = "Work_queue"
-        self.counter = filter_counter # Counter for the number of times filtered text
+        self.counter_key = "COUNTER"
         self.client = redis.Redis(host=redis_host, port=redis_port, db=0, decode_responses=True)
 
     def add_insult(self, insult):
-        with self.counter.get_lock():
-             self.counter.value += 1
+        self.client.incr(self.counter_key)
         self.client.sadd(self.insultSet, insult)
         print(f"InsultFilter: Insult added (internal): {insult} (Counter: {self.counter.value})")
         return f"Insult added (internal): {insult}"
@@ -44,8 +43,7 @@ class InsultFilter:
                 if item:
                     queue_name, text = item
                     # print(f"InsultFilter Worker: Processing text from {queue_name}: Text: {text}")
-                    with self.counter.get_lock():
-                        self.counter.value += 1
+                    self.client.incr(self.counter_key)
                     filtered_text = self.filter_text(text)
                     # print(f"InsultFilter Worker: Filtered text: {filtered_text} (Counter: {self.counter.value})")
                     self.client.sadd(self.censoredTextsSet, filtered_text)
@@ -67,8 +65,8 @@ class InsultFilter:
 
     @Pyro4.expose
     def get_processed_count(self):
-        with self.counter.get_lock():
-            return self.counter.value
+        count = self.client.get(self.counter_key)
+        return int(count) if count else 0
 
 # --- Main execution block for InsultFilter ---
 if __name__ == "__main__":
@@ -79,7 +77,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print("Starting InsultFilter...")
 
-    filtered_requests_counter = Value('i', 0)
     insult_filter = InsultFilter(filtered_requests_counter, args.redis_host, args.redis_port)     # Create the InsultFilter instance
 
     # --- Set up Pyro server ---

@@ -2,23 +2,21 @@ import redis
 import argparse
 import time
 import Pyro4
-from multiprocessing import Process, Value
-
+from multiprocessing import Process
 
 @Pyro4.behavior(instance_mode="single")
 class InsultService:
-    def __init__(self, service_counter, redis_host, redis_port):
+    def __init__(self, redis_host, redis_port):
         self.queue_insults = "Insults_queue"
         self.channel_broadcast = "Insults_broadcast"
         self.insultSet = "INSULTS"
-        self.counter = service_counter  # Counter for the number of insults added
+        self.counter_key = "COUNTER"  # Key for Redis counter
         self.client = redis.Redis(host=redis_host, port=redis_port, db=0, decode_responses=True)
 
     def add_insult(self, insult):
-        with self.counter.get_lock():
-             self.counter.value += 1
+        self.client.incr(self.counter_key)  # INCR Redis Counter
         self.client.sadd(self.insultSet, insult)
-        # print(f"InsultService added: {insult} (Counter: {self.counter.value})")
+        # print(f"InsultService added: {insult} (Counter: {self.get_processed_count()})")
         return f"Insult added: {insult}"
 
     def get_insults(self):
@@ -53,7 +51,7 @@ class InsultService:
                 item = self.client.blpop(self.queue_insults)
                 if item:
                     queue_name, insult = item
-                    # print(f"InsultService Worker: Processed insult: {insult} (Counter: {self.counter.value})")
+                    # print(f"InsultService Worker: Processed insult: {insult} (Counter: {self.get_processed_count()})")
                     self.add_insult(insult)
         except KeyboardInterrupt:
             print("\nInsultService Worker: Stopping listen process...")
@@ -72,9 +70,8 @@ class InsultService:
 
     @Pyro4.expose
     def get_processed_count(self):
-        # Access the shared counter safely
-        with self.counter.get_lock():
-            return self.counter.value
+        count = self.client.get(self.counter_key)
+        return int(count) if count else 0
 
 # --- Main execution block for InsultService ---
 if __name__ == "__main__":
@@ -86,8 +83,7 @@ if __name__ == "__main__":
 
     print("Starting InsultService...")
 
-    processed_requests_counter = Value('i', 0)
-    insults_service = InsultService(processed_requests_counter, args.redis_host, args.redis_port)     # Create the InsultService instance
+    insults_service = InsultService(args.redis_host, args.redis_port)
 
     # --- Set up Pyro server ---
     print("Starting Pyro InsultService for remote access...")
@@ -110,10 +106,10 @@ if __name__ == "__main__":
         print(f"Error registering the service with the name server: {e}")
         exit(1)
 
-    print("InsultService: Clearing initial Redis keys (INSULTS)...")
+    print("InsultService: Clearing initial Redis keys (INSULTS, INSULTS_COUNTER)...")
     insults_service.client.delete(insults_service.insultSet)
+    insults_service.client.delete(insults_service.counter_key)
     print("Redis keys cleared.")
-
 
     # --- Start background processes for InsultService ---
     print("InsultService: Starting worker processes...")

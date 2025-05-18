@@ -13,14 +13,14 @@ DEFAULT_REDIS_HOST = 'localhost'
 DEFAULT_REDIS_PORT = 6379
 DEFAULT_INSULT_QUEUE = 'Insults_queue'
 DEFAULT_WORK_QUEUE = 'Work_queue'         # List (queue) where texts to filter are sent
+REDIS_COUNTER = 'COUNTER'
 
 
 # Pyro names for retrieving statistics
 DEFAULT_PYRO_SERVICE_NAME = 'redis.insultservice'
 DEFAULT_PYRO_FILTER_NAME = 'redis.insultfilter'
 
-DEFAULT_DURATION = 10  # Seconds
-DEFAULT_CONCURRENCY = 10 # Number of concurrent processes/clients
+DEFAULT_CONCURRENCY = 5 # Number of concurrent processes/clients
 
 # --- Data for tests ---
 INSULTS_TO_ADD = ["tonto", "lleig", "boig", "idiota", "estúpid", "inútil", "desastre", "fracassat", "covard", "mentider",
@@ -36,7 +36,7 @@ TEXTS_TO_FILTER = [
 
 
 # --- Worker Functions (executed in separate processes) ---
-def worker_add_insult(host, port, queue_name, results_queue, end_time):
+def worker_add_insult(host, port, queue_name, results_queue, n_msg):
     local_request_count = 0
     local_error_count = 0
     redis_client = None
@@ -48,7 +48,7 @@ def worker_add_insult(host, port, queue_name, results_queue, end_time):
                                    socket_connect_timeout=5, socket_timeout=5)
         redis_client.ping() # Check initial connection
 
-        while time.time() < end_time:
+        while local_request_count < n_msg:
             try:
                 insult = random.choice(INSULTS_TO_ADD) + str(random.randint(1, 10000))
                 redis_client.rpush(queue_name, insult)
@@ -74,7 +74,7 @@ def worker_add_insult(host, port, queue_name, results_queue, end_time):
             redis_client.close()
             # print(f"[Procés {pid}] Connexió Redis tancada.") # TODO: Uncomment this line to see the Redis connection close message
 
-def worker_filter_text(host, port, queue_name, results_queue, end_time):
+def worker_filter_text(host, port, queue_name, results_queue, n_msg):
     local_request_count = 0
     local_error_count = 0
     redis_client = None
@@ -85,7 +85,7 @@ def worker_filter_text(host, port, queue_name, results_queue, end_time):
                                    socket_connect_timeout=5, socket_timeout=5)
         redis_client.ping()
 
-        while time.time() < end_time:
+        while local_request_count < n_msg:
             try:
                 text = random.choice(TEXTS_TO_FILTER)
                 redis_client.rpush(queue_name, text) # RPUSH adds to the end of the list
@@ -111,7 +111,7 @@ def worker_filter_text(host, port, queue_name, results_queue, end_time):
             # print(f"[Procés {pid}] Connexió Redis tancada.")  # TODO: Uncomment this line to see the Redis connection close message
 
 # --- Main Test Function ---
-def run_stress_test(mode, host, port, insult_queue, work_queue, duration, concurrency, num_service_instances):
+def run_stress_test(mode, host, port, insult_queue, work_queue, messages, num_service_instances):
     if mode == 'add_insult':
         pyro_name = DEFAULT_PYRO_SERVICE_NAME
     elif mode == 'filter_text':
@@ -121,8 +121,7 @@ def run_stress_test(mode, host, port, insult_queue, work_queue, duration, concur
     print(f"Insult Queue (for add_insult mode): {insult_queue}")
     print(f"Filter Queue (for filter_text mode): {work_queue}")
     print(f"Pyro Name (for stats): {pyro_name}")
-    print(f"Duration: {duration} seconds")
-    print(f"Concurrency: {concurrency} processes")
+    print(f"Number of messages to send: {messages}")
     print("-" * 30)
 
     if mode == 'add_insult':
@@ -135,15 +134,22 @@ def run_stress_test(mode, host, port, insult_queue, work_queue, duration, concur
         print(f"Error: Mode '{mode}' not recognized.\nOptions: 'add_insult', 'filter_service'.", file=sys.stderr)
         return
 
+    try:
+        redis_client = redis.Redis(host=host, port=port, db=0, decode_responses=True,
+                                   socket_connect_timeout=5, socket_timeout=5)
+    except redis.exceptions.ConnectionError as e:
+        print(f"Severe error connecting to Redis in run_stress_test: {e}", file=sys.stderr)
+        exit(1)
+
+    n_messages = messages // DEFAULT_CONCURRENCY
     results_queue = Queue()
     processes = []
     start_time = time.time()
-    end_time = start_time + duration
 
     # Create and start processes
-    for _ in range(concurrency):
+    for _ in range(DEFAULT_CONCURRENCY):
         # Pass host and port to the worker to create the client inside the process
-        process = Process(target=worker_function, args=(host, port, target, results_queue, end_time))
+        process = Process(target=worker_function, args=(host, port, target, results_queue, n_messages))
         processes.append(process)
         process.start()
 
@@ -151,6 +157,8 @@ def run_stress_test(mode, host, port, insult_queue, work_queue, duration, concur
     print("Waiting for processes to finish...")
     for process in processes:
         process.join()
+
+    actual_duration_client = time.time() - start_time
 
     # Collect results from the queue
     total_client_sent_count = 0
@@ -163,36 +171,40 @@ def run_stress_test(mode, host, port, insult_queue, work_queue, duration, concur
         except Exception as e:
             print(f"Error collecting results from queue: {e}", file=sys.stderr)
 
-    actual_duration = time.time() - start_time
+    # We wait for the instances of the service to finish processing all of the messages.
+    while int(redis_client.get(REDIS_COUNTER)) < messages:
+        time.sleep(0.001)
+
+    actual_duration_server = time.time() - start_time
 
     print("-" * 30)
 
     # --- Phase 2: Get statistics from the service via Pyro ---
     total_processed_count = 0
     # Get stats from the service instances
-    for i in range(1, num_service_instances + 1):
-        service_instance_name = f"{pyro_name}.{i}"
-        try:
-            server_proxy = Pyro4.Proxy(f"PYRONAME:{service_instance_name}")
-            server_proxy._pyroTimeout = 10
-            total_processed_count += server_proxy.get_processed_count()
-            print(f"Stats retrieved from {service_instance_name}.")
-        except Pyro4.errors.NamingError:
-            print(f"Warning: Instance '{service_instance_name}' not found.", file=sys.stderr)
-        except Exception as e:
-            print(f"Error retrieving stats from {service_instance_name}: {e}", file=sys.stderr)
+    service_instance_name = f"{pyro_name}.{1}"
+    try:
+        server_proxy = Pyro4.Proxy(f"PYRONAME:{service_instance_name}")
+        server_proxy._pyroTimeout = 10
+        total_processed_count = server_proxy.get_processed_count()
+        print(f"Stats retrieved from {service_instance_name}.")
+    except Pyro4.errors.NamingError:
+        print(f"Warning: Instance '{service_instance_name}' not found.", file=sys.stderr)
+    except Exception as e:
+        print(f"Error retrieving stats from {service_instance_name}: {e}", file=sys.stderr)
 
 
     print("Stress Test (Redis with Multiprocessing) Finished")
-    print(f"Total time: {actual_duration:.2f} seconds")
+    print(f"Total time sending requests: {actual_duration_client:.2f} seconds")
+    print(f"Total time processing requests: {actual_duration_server:.2f} seconds")
 
 
     print("--- Client Results (Requests Sent by Stress Test Processes) ---")
     print(f"Total commands sent (client success): {total_client_sent_count}")
     print(f"Total errors (on client during sending): {total_client_error_count}")
 
-    if actual_duration > 0:
-        client_sending_throughput = total_client_sent_count / actual_duration
+    if actual_duration_server > 0:
+        client_sending_throughput = total_client_sent_count / actual_duration_client
         print(f"Client sending throughput (commands/second): {client_sending_throughput:.2f}")
     else:
         print("Client sending throughput: N/A (duration too short)")
@@ -201,11 +213,17 @@ def run_stress_test(mode, host, port, insult_queue, work_queue, duration, concur
     if total_processed_count != 0:
         # The service count reflects insults added via its listener
         print(f"Server processed count: {total_processed_count}")
-        if actual_duration > 0:
-            service_throughput = total_processed_count / actual_duration
+        if actual_duration_server > 0:
+            service_throughput = total_processed_count / actual_duration_server
             print(f"Server processing throughput (requests/second): {service_throughput:.2f}")
     else:
         print("Could not retrieve service statistics via Pyro.")
+    print("\n--- Statistics (Per server throughput) ---")
+    if total_processed_count != 0:
+        if actual_duration_server > 0:
+            service_throughput = total_processed_count / actual_duration_server
+            print(f"Per server processing throughput (requests/second): {service_throughput/num_service_instances:.2f}")
+
     print("-" * 30)
 
 
@@ -224,14 +242,12 @@ if __name__ == "__main__":
                         help=f"Name of the Redis queue for publishing insults (default: {DEFAULT_INSULT_QUEUE})")
     parser.add_argument("--work-queue", default=DEFAULT_WORK_QUEUE,
                         help=f"Name of the Redis list/queue for filtering texts (default: {DEFAULT_WORK_QUEUE})")
-    parser.add_argument("-d", "--duration", type=int, default=DEFAULT_DURATION,
-                        help=f"Test duration in seconds (default: {DEFAULT_DURATION})")
-    parser.add_argument("-c", "--concurrency", type=int, default=DEFAULT_CONCURRENCY,
-                        help=f"Number of concurrent client processes (default: {DEFAULT_CONCURRENCY})")
+    parser.add_argument("-m", "--messages", type=int, required=True,
+                        help=f"Number of messages to send")
     parser.add_argument("-n", "--num-service-instances", type=int, default=1,
                         help=f"Number of service instances to retrieve stats from (default: 1)", required=True)
 
     args = parser.parse_args()
 
     run_stress_test(args.mode, args.host, args.port, args.insult_queue, args.work_queue,
-                                args.duration, args.concurrency, args.num_service_instances)
+                                args.messages, args.num_service_instances)
