@@ -1,13 +1,12 @@
-# rabbitmq_stress_test_mp_with_stats.py
 import pika
 import time
-import multiprocessing
 from multiprocessing import Process, Queue
 import random
 import argparse
 import sys
 import os
 import Pyro4
+from Pyro4 import errors
 
 # --- Configuration  ---
 DEFAULT_RABBIT_HOST = 'localhost'
@@ -51,7 +50,7 @@ def worker_add_insult(host, exchange_name, results_queue, end_time):
                  print(f"[Process {pid}] Connection error sending insult: {e}", file=sys.stderr)
                  local_error_count += 1
                  break
-            except Exception as e:
+            except Exception:
                 local_error_count += 1
     except Exception as e:
         print(f"[Process {pid}] Serious error establishing connection/channel (add_insult): {e}", file=sys.stderr)
@@ -83,7 +82,7 @@ def worker_filter_text(host, queue_name, results_queue, end_time):
 
                  local_error_count += 1
                  break
-            except Exception as e:
+            except Exception:
                 local_error_count += 1
     except Exception as e:
         print(f"[Process {pid}] Serious error establishing connection/channel (filter_text): {e}", file=sys.stderr)

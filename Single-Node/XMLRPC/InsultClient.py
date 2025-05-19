@@ -31,8 +31,8 @@ def send_text():
             i = random.randint(0, len(insults_text) - 1)
             print(f"Sent text {insults_text[i]}, has been filtered and now says: {s.filter(insults_text[i])}")
             sleep(2)
-        except Exception as e:
-            print(f"Error in send_text: {e}")
+        except Exception as exception:
+            print(f"Error in send_text: {exception}")
 
 
 def broadcast():
@@ -43,8 +43,8 @@ def broadcast():
             s.notify_subscribers(insult)
             print("Sent petition to insult subscribers.")
             sleep(5)
-        except Exception as e:
-            print(f"Error in broadcast: {e}")
+        except Exception as exception:
+            print(f"Error in broadcast: {exception}")
 
 
 hostService = xmlrpc.client.ServerProxy(serviceURL)

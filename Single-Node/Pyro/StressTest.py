@@ -42,7 +42,7 @@ def worker_add_insult(pyro_name, results_queue, end_time):
             insult = random.choice(INSULTS_TO_ADD) + str(random.randint(1, 10000))
             server_proxy.add_insult(insult)
             local_request_count += 1
-        except Exception as e:
+        except Exception:
             local_error_count += 1
 
     # Send local results to the main process
@@ -66,7 +66,7 @@ def worker_filter_text(pyro_name, results_queue, end_time):
             text = random.choice(TEXTS_TO_FILTER)
             server_proxy.filter_service(text)
             local_request_count += 1
-        except Exception as e:
+        except Exception:
             local_error_count += 1
 
     results_queue.put((local_request_count, local_error_count))
@@ -74,8 +74,8 @@ def worker_filter_text(pyro_name, results_queue, end_time):
 # --- Main function ---
 def run_stress_test(mode, duration, concurrency):
     pyro_name = ""
-    if (mode == "filter_text"): pyro_name = DEFAULT_PYRO_FILTER
-    if (mode == "add_insult"): pyro_name = DEFAULT_PYRO_SERVICE
+    if mode == "filter_text": pyro_name = DEFAULT_PYRO_FILTER
+    if mode == "add_insult": pyro_name = DEFAULT_PYRO_SERVICE
     print(f"Starting Pyro stress test with mode '{mode}'...")
     print(f"Pyro name: {pyro_name}")
     print(f"Duration: {duration} seconds")
@@ -120,6 +120,7 @@ def run_stress_test(mode, duration, concurrency):
     print(f"Intended petitions by the client: {total_client_requests_sent}")
     print(f"Total client errors: {total_client_errors}")
 
+    server_processed_count = -1
     try:
         # Create a proxy to obtain the processed count from the server
         server_proxy_metrics = Pyro4.Proxy(f"PYRONAME:{pyro_name}")

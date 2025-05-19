@@ -2,7 +2,7 @@ import Pyro4
 import random
 import time
 import multiprocessing
-
+from Pyro4 import errors
 
 class InsultClient:
     def __init__(self):

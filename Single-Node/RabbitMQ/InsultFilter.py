@@ -1,6 +1,7 @@
 import Pyro4
 import pika
 from multiprocessing import Manager, Value, Process
+from Pyro4 import errors
 
 processed_requests_counter = Value('i', 0)
 

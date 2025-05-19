@@ -2,6 +2,7 @@ import redis
 import time
 import Pyro4
 from multiprocessing import Process, Value
+from Pyro4 import errors
 
 # Connect to Redis
 client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)

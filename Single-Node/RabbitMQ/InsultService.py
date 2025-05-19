@@ -3,6 +3,7 @@ import time
 import random
 from multiprocessing import Process, Manager, Value
 import Pyro4
+from Pyro4 import errors
 
 # Global counter for processed requests
 processed_requests_counter = Value('i', 0)

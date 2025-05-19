@@ -7,6 +7,7 @@ import argparse
 import sys
 import os
 import Pyro4
+from Pyro4 import errors
 
 # --- Configuration ---
 DEFAULT_REDIS_HOST = 'localhost'
@@ -94,7 +95,7 @@ def worker_filter_text(host, port, queue_name, results_queue, end_time):
                 print(f"[Process {pid}] Redis connection error sending to queue: {e}", file=sys.stderr)
                 local_error_count += 1
                 break
-            except Exception as e:
+            except Exception:
                 # print(f"[Procés {pid}] Error enviant text a cua (Redis): {e}", file=sys.stderr) # Original comment left as code
                 local_error_count += 1
 
