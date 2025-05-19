@@ -28,7 +28,20 @@ Start a RabbitMQ container named rabbitmq-p in detached mode, exposing ports 567
 ```bash
 sudo docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:management
 ```
+# Installation of dependencies
+The project requires several Python packages to run. You can install them using pip. 
 
+```bash
+pip install pika pyro4 redis requests
+```
+If you are using an externally managed environment, the commands would be:
+
+```bash
+sudo apt install pythin3-pika
+sudo apt install pythin3-pyro4
+sudo apt install pythin3-redis
+sudo apt install pythin3-requests
+```
 # How to Run the Different Tests
 
 ## Single-Node 

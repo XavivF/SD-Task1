@@ -1,1 +1,0 @@
-pip install pika pyro4 redis requests
