@@ -5,6 +5,7 @@ import pika
 import random
 import time
 import multiprocessing
+from Pyro4 import errors
 
 class InsultClient:
     def __init__(self, n_instances_service, n_instances_filter):
@@ -25,8 +26,8 @@ class InsultClient:
                     print(f"Connected to Pyro service instance: rabbit.service.{j}")
                 except Pyro4.errors.NamingError:
                     print(f"Warning: Pyro service instance 'rabbit.service.{j}' not found.")
-                except Exception as e:
-                    print(f"Error connecting to Pyro service instance 'rabbit.service.{j}': {e}")
+                except Exception as exception:
+                    print(f"Error connecting to Pyro service instance 'rabbit.service.{j}': {exception}")
 
         if n_instances_filter > 0:
             for j in range(1, n_instances_filter+1):
@@ -36,8 +37,8 @@ class InsultClient:
                     print(f"Connected to Pyro filter instance: rabbit.filter.{j}")
                 except Pyro4.errors.NamingError:
                     print(f"Warning: Pyro filter instance 'rabbit.filter.{j}' not found.")
-                except Exception as e:
-                    print(f"Error connecting to Pyro filter instance 'rabbit.filter.{j}': {e}")
+                except Exception as exception:
+                    print(f"Error connecting to Pyro filter instance 'rabbit.filter.{j}': {exception}")
 
         if not self.insult_service_proxies and not self.insult_filter_proxies:
             print("Error: No Pyro service or filter instances found. Make sure they are running and registered.")
@@ -92,8 +93,7 @@ if __name__ == "__main__":
     process_send_text.start()
 
     try:
-        print(
-            "Press K to stop the services, press I to read the current insult list or press T to read the texts received")
+        print("Press K to stop the services, press I to read the current insult list or press T to read the texts received")
         while True:
             t = input()
             if t == "I":

@@ -145,7 +145,7 @@ def run_stress_test(mode, lb_url, messages, num_service_instances):
         total_client_errors += local_err
 
     total_messages = n_messages * DEFAULT_CONCURRENCY
-    # We wait for the instances of the service to finish processing all of the messages.
+    # We wait for the instances of the service to finish processing all the messages.
     while int(redis_client.get(REDIS_COUNTER)) < total_messages:
         time.sleep(0.001)
 

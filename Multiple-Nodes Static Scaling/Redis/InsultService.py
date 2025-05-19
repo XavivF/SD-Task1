@@ -3,6 +3,7 @@ import redis
 import argparse
 import time
 from multiprocessing import Process
+from Pyro4 import errors
 
 
 class InsultService:

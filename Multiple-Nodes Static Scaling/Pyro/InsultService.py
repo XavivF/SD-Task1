@@ -1,8 +1,8 @@
 import argparse
 import random
-import threading
 import Pyro4
 import sys
+from Pyro4 import errors
 
 @Pyro4.expose
 @Pyro4.behavior(instance_mode="single")

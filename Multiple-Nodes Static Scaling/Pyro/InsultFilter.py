@@ -1,7 +1,7 @@
-import threading
 import Pyro4
 import argparse
 import sys
+from Pyro4 import errors
 
 @Pyro4.expose
 @Pyro4.behavior(instance_mode="single")
@@ -19,7 +19,7 @@ class InsultFilter:
 
     def filter_text(self, text):
         censored_text = ""
-        # we use a copy of the insults list to avoid any modifications it while iterating
+        # We use a copy of the insults list to avoid any modifications it while iterating
         current_insults = list(self.insults_List) # Use the insult list available to this service
         for word in text.split():
             if word.lower() in current_insults:

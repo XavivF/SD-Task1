@@ -46,8 +46,7 @@ if __name__ == "__main__":
     pr_send_text.start()
 
     try:
-        print(
-            "Press K to stop the services, press I to read the current insult list or press T to read the texts received")
+        print("Press K to stop the services, press I to read the current insult list or press T to read the texts received")
         while True:
             t = input()
             if t == "I":

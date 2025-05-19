@@ -3,6 +3,8 @@ import redis
 import argparse
 from multiprocessing import Process
 import time
+from Pyro4 import errors
+
 
 class InsultFilter:
     def __init__(self, redis_host, redis_port):
@@ -15,7 +17,7 @@ class InsultFilter:
     def add_insult(self, insult):
         self.client.incr(self.counter_key)
         self.client.sadd(self.insultSet, insult)
-        print(f"InsultFilter: Insult added (internal): {insult} (Counter: {self.counter.value})")
+        # print(f"InsultFilter: Insult added (internal): {insult}")
         return f"Insult added (internal): {insult}"
 
     def filter_text(self, text):

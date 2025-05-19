@@ -37,8 +37,8 @@ class Insults:
                 proxy = xmlrpc.client.ServerProxy(subscriber_url)
                 proxy.notify(insult)
                 print(f"Subscriber {subscriber_url} notified by instance on port {port}. Insult: {insult}")
-            except Exception as e:
-                print(f"Error notifying {subscriber_url} from instance on port {port}: {e}", file=sys.stderr)
+            except Exception as exception:
+                print(f"Error notifying {subscriber_url} from instance on port {port}: {exception}", file=sys.stderr)
         return f"Subscribers of instance on port {port} notified."
 
     def add_insult(self, insult):

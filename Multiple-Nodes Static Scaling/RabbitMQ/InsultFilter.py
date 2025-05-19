@@ -3,6 +3,7 @@ import Pyro4
 import pika
 from multiprocessing import Manager, Process
 import redis
+from Pyro4 import errors
 
 class InsultFilter:
     def __init__(self, shared_insult_list, shared_censored_texts):

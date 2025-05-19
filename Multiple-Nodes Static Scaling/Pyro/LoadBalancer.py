@@ -3,6 +3,8 @@ import Pyro4
 import sys
 import threading
 import redis
+from Pyro4 import errors
+
 @Pyro4.expose
 @Pyro4.behavior(instance_mode="single")
 class LoadBalancer:
@@ -108,15 +110,15 @@ class LoadBalancer:
 
     def notify_subscribers(self, insult):
         print(f"LB: Forwarding notify_subscribers for insult '{insult}' to all insult services.")
-        errors = 0
+        communication_errors = 0
         for proxy in self.insult_proxies:
             try:
                 proxy.notify_subscribers(insult) # Each InsultService notifies its subscribers
             except Exception as e:
-                errors += 1
+                communication_errors += 1
                 print(f"LB: Error notifying subscribers via {proxy._pyroUri}: {e}", file=sys.stderr)
-        if errors > 0:
-            print(f"LB: {errors} errors occurred during notify_subscribers_balanced.", file=sys.stderr)
+        if communication_errors > 0:
+            print(f"LB: {communication_errors} errors occurred during notify_subscribers_balanced.", file=sys.stderr)
 
     # --- Method to get the total request count ---
     def get_processed_count(self):

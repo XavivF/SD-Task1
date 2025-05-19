@@ -17,7 +17,7 @@ class XmlrpcLoadBalancer:
         self.current_service_index = 0
         self.current_filter_index = 0
         self.service_lock = threading.Lock()
-        self.filter_lock = threading.Lock()  # Lock to protect the index in round robin
+        self.filter_lock = threading.Lock()  # Lock to protect the index in round-robin
         self.counter_key = "COUNTER"  # Key for Redis counter
         self.client = redis.Redis(db=0, decode_responses=True)
 
@@ -45,8 +45,8 @@ class XmlrpcLoadBalancer:
             self.client.incr(self.counter_key)  # INCR Redis Counter
             # print(f"LB: Add insult '{insult}' to service: {proxy._XmlRpcClient__host_port_path}")
             return proxy.add_insult(insult)
-        except Exception as e:
-            print(f"ERROR on LB add_insult: {e}", file=sys.stderr)
+        except Exception as error:
+            print(f"ERROR on LB add_insult: {error}", file=sys.stderr)
             raise
 
     def insult_me(self):
@@ -55,8 +55,8 @@ class XmlrpcLoadBalancer:
             self.client.incr(self.counter_key)  # INCR Redis Counter
             # print(f"LB: Requesting insult from service: {proxy._XmlRpcClient__host_port_path}")
             return proxy.insult_me()  # L'InsultService escollit notificarà els seus subscriptors.
-        except Exception as e:
-            print(f"ERROR on LB insult_me: {e}", file=sys.stderr)
+        except Exception as error:
+            print(f"ERROR on LB insult_me: {error}", file=sys.stderr)
             raise
 
     def get_insults(self):
@@ -66,8 +66,8 @@ class XmlrpcLoadBalancer:
                 for proxy in self.service_proxies:
                     response.extend(proxy.get_insults())
                 return response
-            except Exception as e:
-                print(f"ERROR obtaining results from service backend: {e}", file=sys.stderr)
+            except Exception as error:
+                print(f"ERROR obtaining results from service backend: {error}", file=sys.stderr)
                 raise
         return []
 
@@ -78,8 +78,8 @@ class XmlrpcLoadBalancer:
             self.client.incr(self.counter_key)  # INCR Redis Counter
             # print(f"LB: Filtering text '{text}' via filter: {proxy._XmlRpcClient__host_port_path}")
             return proxy.filter(text)
-        except Exception as e:
-            print(f"ERROR on LB filter: {e}", file=sys.stderr)
+        except Exception as error:
+            print(f"ERROR on LB filter: {error}", file=sys.stderr)
             raise
 
     def get_results(self):
@@ -89,8 +89,8 @@ class XmlrpcLoadBalancer:
                 for proxy in self.filter_proxies:
                     response.extend(proxy.get_results())
                 return response
-            except Exception as e:
-                print(f"ERROR obtaining results from filter backend: {e}", file=sys.stderr)
+            except Exception as error:
+                print(f"ERROR obtaining results from filter backend: {error}", file=sys.stderr)
                 raise
         return []
     # --- Method to add a subscriber to all backends ---
@@ -101,9 +101,9 @@ class XmlrpcLoadBalancer:
             try:
                 proxy.add_subscriber(url)
                 print(f"LoadBalancer: Subscriber added via {proxy._XmlRpcClient__host_port_path}")
-            except Exception as e:
+            except Exception as error:
                 errors += 1
-                print(f"LoadBalancer: Error adding subscriber via {proxy._XmlRpcClient__host_port_path}: {e}",
+                print(f"LoadBalancer: Error adding subscriber via {proxy._XmlRpcClient__host_port_path}: {error}",
                       file=sys.stderr)
         if errors > 0:
 
@@ -116,9 +116,9 @@ class XmlrpcLoadBalancer:
         for proxy in self.service_proxies:
             try:
                 proxy.notify_subscribers(insult)  # Each InsultService notifies its subscribers
-            except Exception as e:
+            except Exception as error:
                 errors += 1
-                print(f"LB: Error notifying subscribers via {proxy._pyroUri}: {e}", file=sys.stderr)
+                print(f"LB: Error notifying subscribers via {proxy._pyroUri}: {error}", file=sys.stderr)
         if errors > 0:
             print(f"LB: {errors} errors occurred during notify_subscribers_balanced.", file=sys.stderr)
 
@@ -167,6 +167,6 @@ if __name__ == "__main__":
     except PermissionError:
         print(f"Error: Could not bind to port {args.port}. Permission denied. Try a port above 1024.", file=sys.stderr)
         sys.exit(1)
-    except Exception as e:
-        print(f"An error occurred: {e}", file=sys.stderr)
+    except Exception as exception:
+        print(f"An error occurred: {exception}", file=sys.stderr)
         sys.exit(1)

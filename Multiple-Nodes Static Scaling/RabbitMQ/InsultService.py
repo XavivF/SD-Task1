@@ -5,6 +5,7 @@ import time
 import random
 from multiprocessing import Process, Manager
 import redis
+from Pyro4 import errors
 
 class Insults:
     def __init__(self, shared_insults_list):

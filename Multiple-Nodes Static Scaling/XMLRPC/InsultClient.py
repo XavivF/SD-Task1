@@ -22,8 +22,8 @@ def add_insults(lb_proxy):
         try:
             print(f"Adding insult '{insult}' via LoadBalancer...")
             lb_proxy.add_insult(insult)
-        except Exception as e:
-            print(f"Error adding insult via LoadBalancer: {e}", file=sys.stderr)
+        except Exception as exception:
+            print(f"Error adding insult via LoadBalancer: {exception}", file=sys.stderr)
 
 
 def send_text():
@@ -35,8 +35,8 @@ def send_text():
             filtered_text = s.filter(text_to_send)
             print(f"Sending text '{text_to_send}' to filter... the result is: {filtered_text}")
             sleep(2)
-        except Exception as e:
-            print(f"Error in send_text: {e}", file=sys.stderr)
+        except Exception as exception:
+            print(f"Error in send_text: {exception}", file=sys.stderr)
             sleep(5)
 
 def broadcast():
@@ -46,8 +46,8 @@ def broadcast():
             insult = s.insult_me()
             s.notify_subscribers(insult)
             sleep(5)
-        except Exception as e:
-            print(f"Error en broadcast: {e}", file=sys.stderr)
+        except Exception as exception:
+            print(f"Error en broadcast: {exception}", file=sys.stderr)
             sleep(5)
 
 
@@ -78,8 +78,7 @@ process_broadcast.start()
 process_send_text.start()
 
 try:
-    print(
-        "Press K to stop the services, press I to read the current insult list or press T to read the texts received")
+    print("Press K to stop the services, press I to read the current insult list or press T to read the texts received")
     while True:
         t = input()
         if t == "I":
