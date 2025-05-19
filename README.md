@@ -1,6 +1,10 @@
 # SD-Task1
 Scaling distributed Systems using direct and indirect communication middleware
 
+## Authors:
+- Joan Arnau Sagarra Canalda
+- Xavier Vilanova Fuambuena
+
 # Configuration of docker containers
 The following steps explain how to set up and run Redis and RabbitMQ containers using Docker:
 
