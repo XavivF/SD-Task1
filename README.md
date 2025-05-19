@@ -861,7 +861,7 @@ Open a new terminal and run stress_test.py. You must provide the total number of
 To test the text filtering (InsultFilterWorker pool):
 
 ```bash
-python stress_test.py filter_text -m <number_of_messages>
+python Stress_test.py filter_text -m <number_of_messages>
 ```
 
 Replace <number_of_messages> with the desired total number of texts to send (e.g., 10000, 50000).
@@ -869,7 +869,7 @@ Replace <number_of_messages> with the desired total number of texts to send (e.g
 To test the insult processing (InsultProcessorWorker pool):
 
 ```bash
-python stress_test.py add_insult -m <number_of_messages>
+python Stress_test.py add_insult -m <number_of_messages>
 ```
 
 Replace <number_of_messages> with the desired total number of insults to send.
@@ -877,7 +877,7 @@ Replace <number_of_messages> with the desired total number of insults to send.
 Example: To send 100,000 texts to the filter:
 
 ```bash
-python stress_test.py filter_text -m 100000
+python Stress_test.py filter_text -m 100000
 ```
 
 The script will:
