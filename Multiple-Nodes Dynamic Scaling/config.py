@@ -40,8 +40,8 @@ INSULT_PROCESSOR_MAX_WORKERS = 150
 INSULT_PROCESSOR_WORKER_CAPACITY_C = 1179.38 # insults/s (afegir a Redis és ràpid)
 INSULT_PROCESSOR_AVERAGE_RESPONSE_TIME = 0.00084790313 # s
 INSULT_ARRIVAL_RATE = 45000 # insults/s
-INSULT_PROCESSOR_SCALING_INTERVAL = 2 # s (pot ser diferent)
+INSULT_PROCESSOR_SCALING_INTERVAL = 2 # s (it can be changed)
 
 
 # Insult Service (Broadcaster) Configuration
-NUM_INSULT_NOTIFIERS = 1  # Nombre de processos que notifiquen als subscriptors
+NUM_INSULT_NOTIFIERS = 1  # Number of processes that notify subscribers
