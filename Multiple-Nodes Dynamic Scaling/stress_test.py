@@ -6,9 +6,9 @@ import Pyro4
 import config
 import math
 from multiprocessing import Process, Queue as MPQueue
-import sys # Importem sys per sortir si falta el NS
+import sys # Import sys to exit if NS is missing
 
-# --- Dades de Prova ---
+# --- Test Data ---
 INSULTS_TO_PUBLISH = ["tonto", "lleig", "boig", "idiota", "estúpid", "inútil", "desastre", "fracassat", "covard",
                       "mentider",
                       "beneit", "capsigrany", "ganàpia", "nyicris", "gamarús", "bocamoll", "murri", "dropo", "bleda",
@@ -22,7 +22,7 @@ TEXTS_TO_SEND_FOR_FILTERING = [
     "Aquest xitxarel·lo es pensa que ho sap tot.", "Un text normal sense res lleig."
 ]
 
-FIXED_CONCURRENCY_LEVEL = 5 # Nombre fix de processos concurrents
+FIXED_CONCURRENCY_LEVEL = 5 # Fixed number of concurrent processes
 
 def create_rabbitmq_connection(host_url):
     """Helper function to create a RabbitMQ connection."""
@@ -34,7 +34,7 @@ def create_rabbitmq_connection(host_url):
         return None
 
 def text_sender_worker(host_url, queue_name, results_mp_queue, num_messages_to_send):
-    """Envia un nombre fix de textos a la cua de filtratge."""
+    """Sends a fixed number of texts to the filtering queue."""
     sent_count = 0
     error_count = 0
     connection = None
@@ -80,7 +80,7 @@ def text_sender_worker(host_url, queue_name, results_mp_queue, num_messages_to_s
 
     except Exception as e:
         print(f"StressTest Text Worker Major Error: {e}")
-        error_count += (num_messages_to_send - sent_count)
+        error_count += (num_messages_to_count - sent_count)
 
     finally:
         if connection and connection.is_open:
@@ -89,7 +89,7 @@ def text_sender_worker(host_url, queue_name, results_mp_queue, num_messages_to_s
 
 
 def insult_sender_worker(host_url, queue_name, results_mp_queue, num_messages_to_send):
-    """Envia un nombre fix d'insults a la cua de processament d'insults."""
+    """Sends a fixed number of insults to the insult processing queue."""
     sent_count = 0
     error_count = 0
     connection = None
@@ -134,7 +134,7 @@ def insult_sender_worker(host_url, queue_name, results_mp_queue, num_messages_to
 
     except Exception as e:
         print(f"StressTest Insult Worker Major Error: {e}")
-        error_count += (num_messages_to_send - sent_count)
+        error_count += (num_messages_to_count - sent_count)
     finally:
         if connection and connection.is_open:
             connection.close()
@@ -196,7 +196,7 @@ def run_stress_test(num_messages, test_type):
     sender_processes = []
 
 
-    # --- Fase 1: Generar càrrega (enviar missatges) ---
+    # --- Phase 1: Generate load (send messages) ---
     print(f"Starting {test_type} sender processes...")
 
     worker_target = None
@@ -257,7 +257,7 @@ def run_stress_test(num_messages, test_type):
         print(f"Stress Test ({test_type}) Finished.")
         sys.exit(0) # Exit gracefully if nothing was sent
 
-    # --- Fase 2: Esperar que els treballadors processin els missatges enviats ---
+    # --- Phase 2: Wait for workers to process the sent messages ---
     print(f"Waiting for workers to process {total_sent_by_stress_test} messages...")
     # Calculate the target processed count we expect
     target_processed_count = initial_processed_count + total_sent_by_stress_test
@@ -285,7 +285,7 @@ def run_stress_test(num_messages, test_type):
     print(f"\nTarget processed count ({target_processed_count}) reached or timeout occurred.")
     print(f"Final processed count in Redis ({test_type}): {current_processed_count}")
 
-    # --- Fase 3: Calcular el Throughput dels Treballadors ---
+    # --- Phase 3: Calculate Worker Throughput ---
     processed_during_test = current_processed_count - initial_processed_count
     processing_duration = end_processing_wait_time - start_time
 
@@ -303,7 +303,7 @@ def run_stress_test(num_messages, test_type):
         print("Processing duration was zero or negative, cannot calculate worker throughput.")
 
 
-    # --- Fase 4: Obtenir estadístiques finals del ScalerManager ---
+    # --- Phase 4: Get final statistics from ScalerManager ---
     # We already have the scaler_proxy connection
     if scaler_proxy:
          # Wait a tiny bit more just in case final stats need a moment to update after counter
@@ -352,7 +352,6 @@ if __name__ == "__main__":
     if args.messages <= 0:
         print("Error: --messages must be a positive integer.")
         sys.exit(1)
-
 
 
     run_stress_test(args.messages, args.mode)

@@ -16,14 +16,14 @@ class InsultSubscriber:
                 self.channel = self.connection.channel()
                 self.channel.exchange_declare(exchange=config.INSULTS_BROADCAST_EXCHANGE_NAME, exchange_type='fanout')
 
-                # Declara una cua exclusiva i temporal per aquest subscriptor
+                # Declares an exclusive and temporary queue for this subscriber
                 result = self.channel.queue_declare(queue='', exclusive=True, durable=True)
                 self.queue_name = result.method.queue
 
                 self.channel.queue_bind(exchange=config.INSULTS_BROADCAST_EXCHANGE_NAME, queue=self.queue_name)
                 print(
                     f"InsultSubscriber: Connected to RabbitMQ, listening on queue '{self.queue_name}' for exchange '{config.INSULTS_BROADCAST_EXCHANGE_NAME}'.")
-                return  # Connexió exitosa
+                return  # Successful connection
             except pika.exceptions.AMQPConnectionError as e:
                 print(f"InsultSubscriber: RabbitMQ connection error: {e}. Retrying in 5 seconds...")
                 time.sleep(5)
@@ -44,7 +44,7 @@ class InsultSubscriber:
             print("InsultSubscriber: Process interrupted by user.")
         except pika.exceptions.ConnectionClosedByBroker:
             print("InsultSubscriber: Connection closed by broker. Attempting to reconnect...")
-            self.listen()  # Torna a intentar connectar i escoltar
+            self.listen()  # Reattempt connect and listen
         except pika.exceptions as e:
             print(f"InsultSubscriber: Caught an error: {e}. Reconnecting...")
             self.listen()

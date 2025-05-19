@@ -44,7 +44,7 @@ class InsultClientDynamic:
             "Aquest ganàpia no sap el que fa.", "Sempre estàs tan nyicris que no pots ni aixecar una cadira.",
             "Quin gamarús! Ha tornat a fer el mateix error.", "No siguis bocamoll i guarda el secret.",
             "És un murri... sempre s’escapa de tot.", "No siguis dropo i posa't a treballar.",
-            "Ets una mica bleda i espavila una mica.", "Aquest xitxarel·lo es pensa que ho sap tot.",
+            "Ets una mica bleda i espabila una mica.", "Aquest xitxarel·lo es pensa que ho sap tot.",
             "Aquest text no te cap insult.", "M'agrada la xocolata."
         ]
 
@@ -131,17 +131,17 @@ class InsultClientDynamic:
 
 
 def continuous_text_and_insult_sender(dynamic_client: InsultClientDynamic, stop_event):
-    """ Envia textos i insults aleatoris contínuament """
+    """ Continuously send random texts and insults """
     text_counter = 0
     insult_counter = 0
     while not stop_event.is_set():
-        # Envia un text
+        # Send a text
         text = random.choice(dynamic_client.texts_samples)
         dynamic_client.send_text_to_filter(text)
         text_counter += 1
 
         if text_counter % 5 == 0:
-            insult = random.choice(dynamic_client.insults_samples) + "_" + str(random.randint(100, 999))  # Per fer-los únics
+            insult = random.choice(dynamic_client.insults_samples) + "_" + str(random.randint(100, 999))  # To make them unique
             dynamic_client.publish_new_insult_to_queue(insult)
             insult_counter += 1
 
@@ -166,7 +166,7 @@ if __name__ == "__main__":
     parser.add_argument("--get-insults", action="store_true", help="Get all insults from InsultService (Redis).")
     parser.add_argument("--get-scaler-stats", action="store_true", help="Get stats from ScalerManager.")
     parser.add_argument("--get-censored-sample", action="store_true",
-                        help="Get a sample of censored texts.")  # Assegura que ScalerManager té aquest mètode
+                        help="Get a sample of censored texts.")  # Ensure ScalerManager has this method
     args = parser.parse_args()
 
     client = InsultClientDynamic()
@@ -203,13 +203,7 @@ if __name__ == "__main__":
             else:
                 print("  No stats received.")
 
-
         elif args.get_censored_sample:
-            # Assegura't que ScalerManager te un mètode exposat com:
-            # @Pyro4.expose
-            # def get_censored_texts_sample(self, count=10):
-            #     return redis_cli.get_censored_texts(0, count -1)
-            # Afegeix-lo si no hi és. Ja estava a la versió anterior de ScalerManager.
             sample = client.get_censored_texts_sample_from_scaler()
             print("Censored Texts Sample:", sample)
 

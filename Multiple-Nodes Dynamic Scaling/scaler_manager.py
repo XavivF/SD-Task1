@@ -16,13 +16,13 @@ from redis_manager import redis_cli
 @Pyro4.behavior(instance_mode="single")
 class ScalerManagerPyro:
     def __init__(self):
-        self.proc_manager = ProcManager()  # Gestor de Processos per a llistes compartides
+        self.proc_manager = ProcManager()  # Process Manager for shared lists
 
-        # Pool per InsultFilterWorkers
-        # Aquesta llista compartida guardarà NOMÉS ID i type
+        # Pool for InsultFilterWorkers
+        # This shared list will store ONLY ID and type
         self.filter_worker_processes_info = self.proc_manager.list()
-        # Aquest diccionari local guardarà els objectes Process i Event
-        # Es gestiona només dins del procés del ScalerManager
+        # This local dictionary will store the Process and Event objects
+        # It is managed only within the ScalerManager process
         # Format: {worker_id: {'process': Process, 'stop_event': Event, 'type': str}}
         self.filter_worker_processes_local = {}
 
@@ -30,10 +30,10 @@ class ScalerManagerPyro:
         self.last_filter_message_count = 0
         self.estimated_filter_arrival_rate_lambda = 0.0
 
-        # Pool per InsultProcessorWorkers
-        # Aquesta llista compartida guardarà NOMÉS ID i type
+        # Pool for InsultProcessorWorkers
+        # This shared list will store ONLY ID and type
         self.insult_processor_worker_processes_info = self.proc_manager.list()
-        # Aquest diccionari local guardarà els objectes Process i Event
+        # This local dictionary will store the Process and Event objects
         self.insult_processor_worker_processes_local = {}
 
 
@@ -48,17 +48,17 @@ class ScalerManagerPyro:
             print(f"ScalerManager: Pyro Name Server not found at {config.PYRO_NS_HOST}:{config.PYRO_NS_PORT}.")
 
         self.pyro_daemon_thread = None
-        # Aquest event deté el bucle principal del ScalerManager
+        # This event stops the main loop of the ScalerManager
         self.stop_main_loop_event = Event()
 
 
         print("ScalerManager initialized (manages FilterWorkers and InsultProcessorWorkers).")
 
     def get_queue_length_http(self, queue_name: str, vhost: str = '%2F') -> int:
-        # Aquest mètode es manté igual
+        # This method remains the same
         api_url = f"http://{config.RABBITMQ_HOST}:15672/api/queues/{vhost}/{queue_name}"
         try:
-            # Utilitzem l'usuari i contrasenya de config per autenticar la crida HTTP
+            # We use the user and password from config to authenticate the HTTP call
             response = requests.get(api_url, auth=HTTPBasicAuth(config.RABBITMQ_USER, config.RABBITMQ_PASS))
             response.raise_for_status()
             data = response.json()
@@ -71,20 +71,20 @@ class ScalerManagerPyro:
             return -1
 
     def start_worker(self, worker_type: str):
-        """Inicia un worker del tipus especificat i gestiona les llistes locals i compartides."""
+        """Starts a worker of the specified type and manages local and shared lists."""
         worker_id = f"{worker_type}_{time.time_ns()}"
-        # L'Event es crea aquí (en el procés pare) i es passarà per argument al procés fill.
-        # La referència a l'Event també es guarda LOCALMENT.
+        # The Event is created here (in the parent process) and will be passed as an argument to the child process.
+        # The reference to the Event is also stored LOCALLY.
         stop_event = Event()
 
-        # Wrapper per asegurar que la instància del Worker es crea dins el nou procés fill
+        # Wrapper to ensure the Worker instance is created inside the new child process
         def worker_runner(worker_class, wid, sevent):
             instance = worker_class(wid, sevent)
             instance.run()
 
         worker_process = None
-        worker_pool_list_shared = None # Llista compartida del Manager (només ID i type)
-        worker_pool_local_dict = None # Diccionari local amb objectes Process i Event
+        worker_pool_list_shared = None # Shared list from the Manager (only ID and type)
+        worker_pool_local_dict = None # Local dictionary with Process and Event objects
 
         if worker_type == "FilterWorker":
             worker_process = Process(target=worker_runner, args=(InsultFilterWorker, worker_id, stop_event),
@@ -101,29 +101,29 @@ class ScalerManagerPyro:
             return
 
 
-        # Guarda la informació COMPLERTA (incloent Process i Event) al diccionari LOCAL del ScalerManager
-        # Aquesta referència NO es serialitza per la llista compartida
+        # Stores the COMPLETE information (including Process and Event) in the LOCAL dictionary of the ScalerManager
+        # This reference is NOT serialized for the shared list
         worker_pool_local_dict[worker_id] = {
             'process': worker_process,
-            'stop_event': stop_event, # L'Event es guarda localment
+            'stop_event': stop_event, # The Event is stored locally
             'type': worker_type
         }
 
-        # Afegeix NOMÉS la informació mínima i pickleable a la llista COMPARTIDA (Manager)
-        # Això és el que altres processos (si n'hi hagués, o parts del ScalerManager
-        # que accedeixin a la llista compartida) poden veure de forma segura.
+        # Adds ONLY the minimum and pickleable information to the SHARED list (Manager)
+        # This is what other processes (if any, or parts of the ScalerManager
+        # that access the shared list) can safely see.
         worker_pool_list_shared.append(
-            {'id': worker_id, 'type': worker_type}) # IMPORTANT: NO incloem 'process' ni 'stop_event' aquí.
+            {'id': worker_id, 'type': worker_type}) # IMPORTANT: We do NOT include 'process' or 'stop_event' here.
 
         worker_process.start()
         print(f"[ScalerManager] Started {worker_type}: {worker_id}")
 
 
     def stop_worker(self, worker_type: str):
-        """Atura un worker del pool especificat (senyalitzant l'event local)."""
+        """Stops a worker from the specified pool (by signaling the local event)."""
 
-        worker_pool_list_shared = None # Llista compartida del Manager (ID, type)
-        worker_pool_local_dict = None # Diccionari local (ID -> Process, Event, type)
+        worker_pool_list_shared = None # Shared list from the Manager (ID, type)
+        worker_pool_local_dict = None # Local dictionary (ID -> Process, Event, type)
 
         if worker_type == "FilterWorker":
             worker_pool_list_shared = self.filter_worker_processes_info
@@ -133,33 +133,32 @@ class ScalerManagerPyro:
             worker_pool_local_dict = self.insult_processor_worker_processes_local
         else:
             print(f"[ScalerManager] Unknown worker type: {worker_type}")
-            return False # O el maneig d'error que correspongui
-
+            return False # Or appropriate error handling
 
         if worker_pool_list_shared:
-            # Agafem la informació (ID, type) del worker de la llista compartida (FIFO)
-            worker_info_shared = worker_pool_list_shared.pop(0) # Això elimina de la llista del Manager
+            # Get the worker info (ID, type) from the shared list (FIFO)
+            worker_info_shared = worker_pool_list_shared.pop(0) # This removes from the Manager's list
             worker_id_to_stop = worker_info_shared['id']
-            worker_type_to_stop = worker_info_shared['type'] # Obtenim el tipus correcte
+            worker_type_to_stop = worker_info_shared['type'] # Get the correct type
 
-            # Busquem la informació complerta (amb l'Event) al diccionari LOCAL
+            # Look for the complete info (with the Event) in the LOCAL dictionary
             worker_info_local = worker_pool_local_dict.get(worker_id_to_stop)
 
             if worker_info_local and 'stop_event' in worker_info_local:
-                 # Senyalitzem l'esdeveniment de stop LOCAL
+                 # Signal the LOCAL stop event
                  stop_event_to_set = worker_info_local['stop_event']
                  stop_event_to_set.set()
                  print(f"[ScalerManager] Signaled {worker_type_to_stop} {worker_id_to_stop} to stop.")
-                 # No eliminem del diccionari local aquí. La neteja es fa més tard.
+                 # We don't remove from the local dictionary here. Cleanup is done later.
                  return True
             else:
                  print(f"[ScalerManager] Warning: Could not find local info for worker {worker_id_to_stop} to signal stop.")
-                 # Tot i no poder senyalitzar, ja l'hem eliminat de la llista shared.
-                 # La neteja final s'encarregarà si el procés encara existeix.
-                 return False # O gestionar com a error
+                 # Even if we can't signal, we have removed it from the shared list.
+                 # Final cleanup will handle it if the process still exists.
+                 return False # Or handle as an error
 
 
-        return False # No hi havia workers per aturar
+        return False # No workers to stop
 
 
     def adjust_worker_pool(self, queue_name: str,
@@ -167,10 +166,10 @@ class ScalerManagerPyro:
                            worker_capacity_c: float, average_response_time: float,
                            last_msg_count_attr_name: str, last_check_time_attr_name: str,
                            lambda_attr_name: str, worker_type_name: str):
-        """Lògica genèrica per ajustar un pool de treballadors."""
+        """Generic logic to adjust a worker pool."""
 
-        worker_pool_list_shared = None # Llista compartida del Manager (ID, type)
-        worker_pool_local_dict = None # Diccionari local (ID -> Process, Event, type)
+        worker_pool_list_shared = None # Shared list from the Manager (ID, type)
+        worker_pool_local_dict = None # Local dictionary (ID -> Process, Event, type)
 
         lambda_rate = 0.0
         if queue_name == config.TEXT_QUEUE_NAME:
@@ -193,18 +192,18 @@ class ScalerManagerPyro:
             print(f"[ScalerManager] Cannot adjust {worker_type_name} pool, failed to get queue length for '{queue_name}'.")
             return
 
-        current_workers_count = len(worker_pool_list_shared) # Utilitzem la mida de la llista compartida (registrats)
+        current_workers_count = len(worker_pool_list_shared) # Use the size of the shared list (registered)
 
         print(f"[ScalerManager-{worker_type_name}] State: Backlog (B)={backlog_B}, Est. Lambda (λ)={lambda_rate:.2f} msg/s")
 
-        # Fórmula N = ceil((lambda * Tr + B) / C )
+        # Formula N = ceil((lambda * Tr + B) / C )
         numerator = (lambda_rate * average_response_time) + backlog_B
         denominator = worker_capacity_c
 
         num_required_N = math.ceil(numerator / denominator)
 
 
-        # Assegurar que N_required està dins dels límits min/max
+        # Ensure N_required is within min/max limits
         num_required_N = max(min_workers, min(num_required_N, max_workers))
 
         print(f"[ScalerManager-{worker_type_name}] Calculated N_required = {num_required_N}, Current workers = {current_workers_count}")
@@ -213,76 +212,76 @@ class ScalerManagerPyro:
             num_to_add = num_required_N - current_workers_count
             print(f"[ScalerManager-{worker_type_name}] Scaling up: Adding {num_to_add} worker(s).")
             for _ in range(num_to_add):
-                if len(worker_pool_list_shared) < max_workers: # Comprovem la mida de la llista compartida (registrats)
-                    self.start_worker(worker_type_name) # Inicia i gestiona llistes internes
+                if len(worker_pool_list_shared) < max_workers: # Check the size of the shared list (registered)
+                    self.start_worker(worker_type_name) # Start and manage internal lists
                 else:
                     print(f"[ScalerManager-{worker_type_name}] Max workers ({max_workers}) reached, cannot add more.")
-                    break # Aturem si hem arribat al màxim
+                    break # Stop if we reached the maximum
         elif num_required_N < current_workers_count:
             num_to_remove = current_workers_count - num_required_N
             print(f"[ScalerManager-{worker_type_name}] Scaling down: Removing {num_to_remove} worker(s).")
             for _ in range(num_to_remove):
-                # Eliminar workers de la llista compartida (que senyalitza stop localment)
-                if len(worker_pool_list_shared) > min_workers: # Comprovem la mida de la llista compartida
-                    self.stop_worker(worker_type_name) # Elimina de llista shared i senyalitza stop local
+                # Remove workers from the shared list (which signals stop locally)
+                if len(worker_pool_list_shared) > min_workers: # Check the size of the shared list
+                    self.stop_worker(worker_type_name) # Removes from shared list and signals stop locally
                 else:
                     print(f"[ScalerManager-{worker_type_name}] Min workers ({min_workers}) reached, cannot remove more.")
-                    break # Aturem si hem arribat al mínim
+                    break # Stop if we reached the minimum
 
 
-        # --- Neteja de processos treballador que hagin acabat inesperadament ---
-        # Iterem sobre la llista compartida (amb una còpia) per trobar workers que *haurien* d'estar registrats
-        # Però que, en comprovar amb l'objecte Process local, no estan vius.
-        worker_ids_to_remove_from_shared_list = [] # Guardarem els IDs dels workers a eliminar de la llista shared
-        worker_ids_to_remove_from_local_dict = [] # Guardarem els IDs dels processos morts trobats al dict local
+        # --- Cleanup of worker processes that may have finished unexpectedly ---
+        # Iterate over the shared list (with a copy) to find workers that *should* be registered
+        # But which, when checked with the local Process object, are not alive.
+        worker_ids_to_remove_from_shared_list = [] # Will store the IDs of workers to remove from the shared list
+        worker_ids_to_remove_from_local_dict = [] # Will store the IDs of dead processes found in the local dict
 
-        # Iterem sobre una còpia de la llista compartida per seguretat mentre la modifiquem
+        # Iterate over a copy of the shared list for safety while modifying the original
         for worker_info_shared in list(worker_pool_list_shared):
             worker_id = worker_info_shared['id']
-            # Intentem obtenir la informació local complerta (amb Process)
+            # Try to get the complete local information (with Process)
             worker_info_local = worker_pool_local_dict.get(worker_id)
 
             if worker_info_local is None:
-                # Aquest cas no hauria de passar si la lògica add/remove/cleanup és consistent.
-                # La info és a la llista compartida, però s'ha perdut l'entrada local.
+                # This case should not happen if the add/remove/cleanup logic is consistent.
+                # The info is in the shared list, but the local entry is lost.
                 print(f"[ScalerManager-{worker_type_name}] Warning: Worker {worker_id} info found in shared list, but local info (Process/Event) not found. Removing from shared list.")
-                worker_ids_to_remove_from_shared_list.append(worker_id) # Marcar per eliminar de shared
+                worker_ids_to_remove_from_shared_list.append(worker_id) # Mark for removal from shared
             elif not worker_info_local['process'].is_alive():
-                # El procés NO està viu (segons l'objecte Process local), cal netejar les dues llistes
+                # The process is NOT alive (according to the local Process object), need to clean up both lists
                 print(
                     f"[ScalerManager-{worker_type_name}] Worker {worker_id} is no longer alive. Removing from lists.")
-                worker_ids_to_remove_from_shared_list.append(worker_id) # Marcar per eliminar de shared
-                worker_ids_to_remove_from_local_dict.append(worker_id) # Marcar per eliminar de local
+                worker_ids_to_remove_from_shared_list.append(worker_id) # Mark for removal from shared
+                worker_ids_to_remove_from_local_dict.append(worker_id) # Mark for removal from local
 
 
-        # Eliminem les entrades de la llista compartida (Manager) basant-nos en els IDs marcats
-        # Cal fer-ho element a element per valor o index, no per ID directament en Manager.list
-        # Un mètode segur amb Manager.list és reconstruir-la o eliminar per index en ordre invers.
-        # Iterem sobre una còpia i eliminem de l'original si l'ID està a la llista to_remove
+        # Remove the entries from the shared list (Manager) based on the marked IDs
+        # Need to do it element by element by value or index, not by ID directly in Manager.list
+        # A safe method with Manager.list is to rebuild it or remove by index in reverse order.
+        # Iterate over a copy and remove from the original if the ID is in the to_remove list
         indices_to_remove_from_shared_list_final = []
         for i, worker_info_shared in enumerate(list(worker_pool_list_shared)):
              if worker_info_shared['id'] in worker_ids_to_remove_from_shared_list:
                   indices_to_remove_from_shared_list_final.append(i)
 
-        # Eliminem en ordre invers per no afectar índexs
+        # Remove in reverse order to avoid affecting indices
         for i in sorted(indices_to_remove_from_shared_list_final, reverse=True):
              try:
-                 del worker_pool_list_shared[i] # Eliminem per índex de la llista compartida
+                 del worker_pool_list_shared[i] # Remove by index from the shared list
              except IndexError:
-                  pass # Potser ja ha estat eliminat per una altra lògica concurrent (poc probable amb 1 fil de main_loop, però segur)
+                  pass # Maybe it has already been removed by other concurrent logic (unlikely with 1 main_loop thread, but safe)
 
 
-        # Eliminem els objectes Process i Event corresponents del diccionari LOCAL basant-nos en els IDs marcats
+        # Remove the corresponding Process and Event objects from the LOCAL dictionary based on the marked IDs
         for worker_id in worker_ids_to_remove_from_local_dict:
              if worker_id in worker_pool_local_dict:
                  del worker_pool_local_dict[worker_id]
 
 
-        # NOTA: Quan cridem _stop_worker, només senyalitzem l'event LOCAL i eliminem de la llista shared.
-        # El procés worker s'aturarà al seu ritme.
-        # La neteja COMPLERTA (eliminació de l'entrada al diccionari local amb l'objecte Process)
-        # es fa en la propera execució d'aquest bloc de neteja si el procés ja no està viu,
-        # o a la neteja final del main_loop.
+        # NOTE: When we call _stop_worker, we only signal the LOCAL event and remove from the shared list.
+        # The worker process will stop at its own pace.
+        # The COMPLETE cleanup (removal of the entry from the local dictionary with the Process object)
+        # is done in the next execution of this cleanup block if the process is no longer alive,
+        # or during the final cleanup of the main_loop.
 
 
     def main_loop(self):
@@ -290,15 +289,15 @@ class ScalerManagerPyro:
         filter_last_scale_time = time.time()
         insult_processor_last_scale_time = time.time()
 
-        # Bucle principal on es monitoritza i escala
+        # Main loop where monitoring and scaling happens
         while not self.stop_main_loop_event.is_set():
             current_time = time.time()
 
 
-            # Ajustar FilterWorkers
+            # Adjust FilterWorkers
             if current_time - filter_last_scale_time >= config.FILTER_SCALING_INTERVAL:
                 print("\n\n--- Adjusting InsultFilterWorker Pool ---")
-                # Cridem _adjust_worker_pool que gestiona les llistes internes
+                # Call _adjust_worker_pool which manages internal lists
                 self.adjust_worker_pool(
                     queue_name=config.TEXT_QUEUE_NAME,
                     min_workers=config.FILTER_MIN_WORKERS,
@@ -311,10 +310,10 @@ class ScalerManagerPyro:
                     worker_type_name="FilterWorker"
                 )
                 filter_last_scale_time = current_time
-            # Ajustar InsultProcessorWorkers (NOU)
+            # Adjust InsultProcessorWorkers (NEW)
             if current_time - insult_processor_last_scale_time >= config.INSULT_PROCESSOR_SCALING_INTERVAL:
                 print("\n\n--- Adjusting InsultProcessorWorker Pool ---")
-                # Cridem _adjust_worker_pool que gestiona les llistes internes
+                # Call _adjust_worker_pool which manages internal lists
                 self.adjust_worker_pool(
                     queue_name=config.INSULTS_PROCESSING_QUEUE_NAME,
                     min_workers=config.INSULT_PROCESSOR_MIN_WORKERS,
@@ -328,10 +327,10 @@ class ScalerManagerPyro:
                 )
                 insult_processor_last_scale_time = current_time
 
-            time.sleep(1)  # Comprova cada segon si toca escalar algun pool
+            time.sleep(1)  # Check every second if it's time to scale any pool
 
-        # --- CODI DE NETEJA FINAL (EXECUTAT DESPRÉS DEL WHILE LOOP) ---
-        # Aquest bloc s'executa quan self.stop_main_loop_event.is_set() és True
+        # --- FINAL CLEANUP CODE (EXECUTED AFTER THE WHILE LOOP) ---
+        # This block is executed when self.stop_main_loop_event.is_set() is True
         print("[ScalerManager] Main loop stopped. Initiating cleanup of all workers...")
 
         all_local_pools = {
@@ -340,11 +339,11 @@ class ScalerManagerPyro:
         }
 
         print("[ScalerManager] Signaling all workers to stop...")
-        # Iterem sobre una còpia dels items del diccionari local per poder modificar l'original
-        for worker_type, local_pool in list(all_local_pools.items()): # Itera sobre els pools
-            for worker_id, worker_info_local in list(local_pool.items()): # Itera sobre els workers locals
+        # Iterate over a copy of the items in the local dictionary to be able to modify the original
+        for worker_type, local_pool in list(all_local_pools.items()): # Iterate over the pools
+            for worker_id, worker_info_local in list(local_pool.items()): # Iterate over local workers
                 try:
-                    # Obtenim l'event de stop del diccionari local
+                    # Get the stop event from the local dictionary
                     if 'stop_event' in worker_info_local and worker_info_local['stop_event']:
                        stop_event_to_set = worker_info_local['stop_event']
                        stop_event_to_set.set()
@@ -356,12 +355,12 @@ class ScalerManagerPyro:
                     print(f"[ScalerManager] Error signaling stop to {worker_type} {worker_id}: {e}")
 
 
-        # Esperar que els processos acabin i netejar els diccionaris locals i llistes compartides
+        # Wait for processes to finish and clean up local dictionaries and shared lists
         print("[ScalerManager] Waiting for workers to finish and performing final list cleanup...")
-        # Iterem sobre una còpia dels items del diccionari local
-        for worker_type, local_pool in list(all_local_pools.items()): # Itera sobre els pools
-             for worker_id, worker_info_local in list(local_pool.items()): # Itera sobre els workers locals
-                # Intentem unir-nos/terminar el procés si encara existeix a la info local
+        # Iterate over a copy of the items in the local dictionary
+        for worker_type, local_pool in list(all_local_pools.items()): # Iterate over the pools
+             for worker_id, worker_info_local in list(local_pool.items()): # Iterate over local workers
+                # Try to join/terminate the process if it still exists in the local info
                 if 'process' in worker_info_local and worker_info_local['process'] and worker_info_local['process'].is_alive():
                     worker_process = worker_info_local['process']
                     try:
@@ -373,13 +372,13 @@ class ScalerManagerPyro:
                     except Exception as e:
                         print(f"[ScalerManager] Error joining/terminating {worker_type} {worker_id}: {e}")
 
-                # Un cop hem intentat aturar/unir el procés, el podem eliminar de les llistes.
-                # Eliminem del diccionari local
+                # Once we have attempted to stop/join the process, we can remove it from the lists.
+                # Remove from the local dictionary
                 if worker_id in local_pool:
                      del local_pool[worker_id]
 
-                # Eliminem de la llista compartida (Manager) si encara hi és.
-                # Cal trobar l'entrada per ID i eliminar-la.
+                # Remove from the shared list (Manager) if it is still there.
+                # Need to find the entry by ID and remove it.
                 shared_list = None
                 if worker_type == "FilterWorker":
                     shared_list = self.filter_worker_processes_info
@@ -388,17 +387,17 @@ class ScalerManagerPyro:
 
                 if shared_list:
                     indices_to_remove_from_shared_list_final = []
-                    # Iterem sobre una còpia per trobar l'índex
+                    # Iterate over a copy to find the index
                     for i, worker_info_shared in enumerate(list(shared_list)):
                          if worker_info_shared['id'] == worker_id:
                               indices_to_remove_from_shared_list_final.append(i)
 
-                    # Eliminem en ordre invers de la llista compartida real
+                    # Remove in reverse order from the actual shared list
                     for i in sorted(indices_to_remove_from_shared_list_final, reverse=True):
                          try:
                              del shared_list[i]
                          except IndexError:
-                              pass # Ja s'ha eliminat
+                              pass # Already removed
 
 
         print("[ScalerManager] All workers stopped and lists cleaned.")
@@ -409,8 +408,8 @@ class ScalerManagerPyro:
         filter_queue_len = self.get_queue_length_http(config.TEXT_QUEUE_NAME)
         insult_proc_queue_len = self.get_queue_length_http(config.INSULTS_PROCESSING_QUEUE_NAME)
 
-        # Cal utilitzar la mida de les llistes compartides per al nombre de workers actius
-        # que el ScalerManager *creu* que estan vius/registrats.
+        # Need to use the size of the shared lists for the number of active workers
+        # that the ScalerManager *believes* are alive/registered.
         active_filter_workers = len(self.filter_worker_processes_info)
         active_insult_processors = len(self.insult_processor_worker_processes_info)
 
@@ -418,25 +417,25 @@ class ScalerManagerPyro:
             "filter_workers_pool": {
                 "active_workers": active_filter_workers,
                 "text_queue_length": filter_queue_len if filter_queue_len != -1 else "Error",
-                # La lambda estimada es guarda com a atribut de l'objecte ScalerManager
+                # The estimated lambda is stored as an attribute of the ScalerManager object
                 "total_texts_censored_redis": redis_cli.get_censored_texts_count(),
                 "filter_processed_redis_counter": redis_cli.r.get(config.REDIS_PROCESSED_COUNTER_KEY) or 0,
             },
-            "insult_processor_pool": {  # NOU
+            "insult_processor_pool": {  # NEW
                 "active_workers": active_insult_processors,
                 "insults_processing_queue_length": insult_proc_queue_len if insult_proc_queue_len != -1 else "Error",
-                 # La lambda estimada es guarda com a atribut de l'objecte ScalerManager
+                 # The estimated lambda is stored as an attribute of the ScalerManager object
                 "insults_processed_redis_counter": redis_cli.r.get(config.REDIS_PROCESSED_COUNTER_KEY) or 0,
             },
             "config_summary": {
                 "filter_min_max_workers": f"{config.FILTER_MIN_WORKERS}-{config.FILTER_MAX_WORKERS}",
-                "filter_C_Tr": f"C={config.FILTER_WORKER_CAPACITY_C}, Tr={config.FILTER_AVERAGE_RESPONSE_TIME}",
+                "filter_C_Tr": f"C={config.FILTER_WORKER_CAPACITY_C}, Tr={config.FILTER_AVERTAD_RESPONSE_TIME}",
                 "insult_proc_min_max_workers": f"{config.INSULT_PROCESSOR_MIN_WORKERS}-{config.INSULT_PROCESSOR_MAX_WORKERS}",
                 "insult_proc_C_Tr": f"C={config.INSULT_PROCESSOR_WORKER_CAPACITY_C}, Tr={config.INSULT_PROCESSOR_AVERAGE_RESPONSE_TIME}",
             }
         }
 
-    # get_censored_texts_sample es manté igual. Assumeix que redis_cli ja està connectat.
+    # get_censored_texts_sample remains the same. Assumes redis_cli is already connected.
     @Pyro4.expose
     def get_censored_texts_sample(self, count=10):
          """Returns a sample of censored texts from Redis."""
@@ -451,11 +450,11 @@ class ScalerManagerPyro:
 
 
     def start_pyro_daemon(self):
-        # Aquest mètode es manté pràcticament igual
+        # This method remains practically the same
         try:
-            # El daemon Pyro ha de córrer en un fil separat per no bloquejar el main_loop
+            # The Pyro daemon must run in a separate thread to not block the main_loop
             daemon = Pyro4.Daemon(host=config.PYRO_DAEMON_HOST)
-            # Registrem la instància actual del ScalerManagerPyro
+            # Register the current instance of ScalerManagerPyro
             uri = daemon.register(self, objectId=config.PYRO_SCALER_MANAGER_NAME)
             if self.ns:
                 self.ns.register(config.PYRO_SCALER_MANAGER_NAME, uri)
@@ -464,13 +463,13 @@ class ScalerManagerPyro:
                 print(
                     f"[ScalerManager] Pyro Name Server not found. Service '{config.PYRO_SCALER_MANAGER_NAME}' not registered. URI is {uri}")
             print("[ScalerManager] Pyro daemon starting...")
-            # Entra al bucle principal del daemon Pyro, esperant peticions remotes
+            # Enter the main loop of the Pyro daemon, waiting for remote requests
             daemon.requestLoop()
             print("[ScalerManager] Pyro daemon stopped.")
         except Exception as e:
             print(f"[ScalerManager] Error in Pyro setup or loop: {e}")
         finally:
-            # Neteja al final (si el daemon s'atura per qualsevol raó)
+            # Cleanup at the end (if the daemon stops for any reason)
             if self.ns and config.PYRO_SCALER_MANAGER_NAME in self.ns.list():  # type: ignore
                 try:
                     self.ns.remove(config.PYRO_SCALER_MANAGER_NAME)
@@ -480,19 +479,19 @@ class ScalerManagerPyro:
 
 
     def run(self):
-        # Aquest mètode inicia el fil del daemon Pyro i després entra al bucle principal d'escalat
+        # This method starts the Pyro daemon thread and then enters the main scaling loop
         self.pyro_daemon_thread = threading.Thread(target=self.start_pyro_daemon, daemon=True)
         self.pyro_daemon_thread.start()
         print("[ScalerManager] Pyro daemon thread for ScalerManager started.")
         try:
-            # El bucle principal de l'escalat s'executa en el fil principal (o el fil que cridi 'run')
+            # The main scaling loop runs in the main thread (or the thread that calls 'run')
             self.main_loop()
         except KeyboardInterrupt:
-            # Captura Ctrl+C per iniciar el tancament controlat
+            # Capture Ctrl+C to initiate controlled shutdown
             print("[ScalerManager] KeyboardInterrupt received by ScalerManager. Stopping...")
         finally:
-            # Senyalitza al bucle principal que s'aturi
+            # Signal the main loop to stop
             self.stop_main_loop_event.set()
-            # No cal unir-se al fil del daemon Pyro si és daemon=True, acabarà sol.
-            # La neteja de workers la fa main_loop abans de sortir.
+            # No need to join the Pyro daemon thread if daemon=True, it will exit on its own.
+            # Worker cleanup is done by main_loop before exiting.
             print("[ScalerManager] ScalerManager exiting.")
