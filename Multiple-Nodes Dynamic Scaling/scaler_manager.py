@@ -7,6 +7,7 @@ from multiprocessing import Process, Event, Manager as ProcManager
 import threading
 import config
 
+from Pyro4 import errors
 from insult_filter_worker import InsultFilterWorker
 from insult_processor_worker import InsultProcessorWorker
 from redis_manager import redis_cli
@@ -187,17 +188,17 @@ class ScalerManagerPyro:
              print(f"[ScalerManager] Error: Unknown worker type during adjustment for {queue_name}.")
              return
 
-        backlog_B = self.get_queue_length_http(queue_name)
-        if backlog_B == -1:
+        backlog_b = self.get_queue_length_http(queue_name)
+        if backlog_b == -1:
             print(f"[ScalerManager] Cannot adjust {worker_type_name} pool, failed to get queue length for '{queue_name}'.")
             return
 
         current_workers_count = len(worker_pool_list_shared) # Use the size of the shared list (registered)
 
-        print(f"[ScalerManager-{worker_type_name}] State: Backlog (B)={backlog_B}, Est. Lambda (λ)={lambda_rate:.2f} msg/s")
+        print(f"[ScalerManager-{worker_type_name}] State: Backlog (B)={backlog_b}, Est. Lambda (λ)={lambda_rate:.2f} msg/s")
 
         # Formula N = ceil((lambda * Tr + B) / C )
-        numerator = (lambda_rate * average_response_time) + backlog_B
+        numerator = (lambda_rate * average_response_time) + backlog_b
         denominator = worker_capacity_c
 
         num_required_N = math.ceil(numerator / denominator)
@@ -248,8 +249,7 @@ class ScalerManagerPyro:
                 worker_ids_to_remove_from_shared_list.append(worker_id) # Mark for removal from shared
             elif not worker_info_local['process'].is_alive():
                 # The process is NOT alive (according to the local Process object), need to clean up both lists
-                print(
-                    f"[ScalerManager-{worker_type_name}] Worker {worker_id} is no longer alive. Removing from lists.")
+                print(f"[ScalerManager-{worker_type_name}] Worker {worker_id} is no longer alive. Removing from lists.")
                 worker_ids_to_remove_from_shared_list.append(worker_id) # Mark for removal from shared
                 worker_ids_to_remove_from_local_dict.append(worker_id) # Mark for removal from local
 
@@ -429,7 +429,7 @@ class ScalerManagerPyro:
             },
             "config_summary": {
                 "filter_min_max_workers": f"{config.FILTER_MIN_WORKERS}-{config.FILTER_MAX_WORKERS}",
-                "filter_C_Tr": f"C={config.FILTER_WORKER_CAPACITY_C}, Tr={config.FILTER_AVERTAD_RESPONSE_TIME}",
+                "filter_C_Tr": f"C={config.FILTER_WORKER_CAPACITY_C}, Tr={config.FILTER_AVERAGE_RESPONSE_TIME}",
                 "insult_proc_min_max_workers": f"{config.INSULT_PROCESSOR_MIN_WORKERS}-{config.INSULT_PROCESSOR_MAX_WORKERS}",
                 "insult_proc_C_Tr": f"C={config.INSULT_PROCESSOR_WORKER_CAPACITY_C}, Tr={config.INSULT_PROCESSOR_AVERAGE_RESPONSE_TIME}",
             }
@@ -460,8 +460,7 @@ class ScalerManagerPyro:
                 self.ns.register(config.PYRO_SCALER_MANAGER_NAME, uri)
                 print(f"[ScalerManager] Pyro service registered as '{config.PYRO_SCALER_MANAGER_NAME}' with URI {uri}")
             else:
-                print(
-                    f"[ScalerManager] Pyro Name Server not found. Service '{config.PYRO_SCALER_MANAGER_NAME}' not registered. URI is {uri}")
+                print(f"[ScalerManager] Pyro Name Server not found. Service '{config.PYRO_SCALER_MANAGER_NAME}' not registered. URI is {uri}")
             print("[ScalerManager] Pyro daemon starting...")
             # Enter the main loop of the Pyro daemon, waiting for remote requests
             daemon.requestLoop()

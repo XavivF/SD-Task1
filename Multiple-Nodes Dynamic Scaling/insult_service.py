@@ -50,8 +50,7 @@ class InsultServicePyro:
                 print(f"[InsultService-Notifier-{instance_id}] RabbitMQ connection error: {e}. Retrying in 5s...")
                 time.sleep(5)
             except Exception as e:
-                print(
-                    f"[InsultService-Notifier-{instance_id}] Unexpected error: {e}. Restarting notifier logic in 5s...")
+                print(f"[InsultService-Notifier-{instance_id}] Unexpected error: {e}. Restarting notifier logic in 5s...")
                 time.sleep(5)
 
 

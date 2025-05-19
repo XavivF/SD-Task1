@@ -37,10 +37,10 @@ pip install pika pyro4 redis requests
 If you are using an externally managed environment, the commands would be:
 
 ```bash
-sudo apt install pythin3-pika
-sudo apt install pythin3-pyro4
-sudo apt install pythin3-redis
-sudo apt install pythin3-requests
+sudo apt install python3-pika
+sudo apt install python3-pyro4
+sudo apt install python3-redis
+sudo apt install python3-requests
 ```
 # How to Run the Different Tests
 

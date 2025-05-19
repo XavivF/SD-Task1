@@ -7,6 +7,7 @@ class InsultSubscriber:
     def __init__(self):
         self.connection = None
         self.channel = None
+        self.queue_name = None
         print("InsultSubscriber initialized.")
 
     def connect_rabbitmq(self):
@@ -21,8 +22,7 @@ class InsultSubscriber:
                 self.queue_name = result.method.queue
 
                 self.channel.queue_bind(exchange=config.INSULTS_BROADCAST_EXCHANGE_NAME, queue=self.queue_name)
-                print(
-                    f"InsultSubscriber: Connected to RabbitMQ, listening on queue '{self.queue_name}' for exchange '{config.INSULTS_BROADCAST_EXCHANGE_NAME}'.")
+                print(f"InsultSubscriber: Connected to RabbitMQ, listening on queue '{self.queue_name}' for exchange '{config.INSULTS_BROADCAST_EXCHANGE_NAME}'.")
                 return  # Successful connection
             except pika.exceptions.AMQPConnectionError as e:
                 print(f"InsultSubscriber: RabbitMQ connection error: {e}. Retrying in 5 seconds...")

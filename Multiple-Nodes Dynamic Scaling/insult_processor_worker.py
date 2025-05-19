@@ -19,8 +19,7 @@ class InsultProcessorWorker:
             self.channel = self.connection.channel()
             self.channel.queue_declare(queue=config.INSULTS_PROCESSING_QUEUE_NAME, durable=True)
             self.channel.basic_qos(prefetch_count=1)
-            print(
-                f"[InsultProcessorWorker {self.worker_id}] Connected to RabbitMQ, consuming from '{config.INSULTS_PROCESSING_QUEUE_NAME}'.")
+            print(f"[InsultProcessorWorker {self.worker_id}] Connected to RabbitMQ, consuming from '{config.INSULTS_PROCESSING_QUEUE_NAME}'.")
         except pika.exceptions.AMQPConnectionError as e:
             print(f"[InsultProcessorWorker {self.worker_id}] Error connecting to RabbitMQ: {e}. Retrying in 5s...")
             time.sleep(5)
@@ -32,7 +31,7 @@ class InsultProcessorWorker:
         if not self.channel:
             # print(f"[InsultProcessorWorker {self.worker_id}] Cannot start without RabbitMQ channel. Exiting.")
             return
-
+        method_frame = None
         while not self.stop_event.is_set():
             try:
                 method_frame, properties, body = self.channel.basic_get(queue=config.INSULTS_PROCESSING_QUEUE_NAME,

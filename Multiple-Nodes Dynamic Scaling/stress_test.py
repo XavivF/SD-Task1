@@ -4,7 +4,6 @@ import random
 import argparse
 import Pyro4
 import config
-import math
 from multiprocessing import Process, Queue as MPQueue
 import sys # Import sys to exit if NS is missing
 
@@ -80,7 +79,7 @@ def text_sender_worker(host_url, queue_name, results_mp_queue, num_messages_to_s
 
     except Exception as e:
         print(f"StressTest Text Worker Major Error: {e}")
-        error_count += (num_messages_to_count - sent_count)
+        error_count += (num_messages_to_send - sent_count)
 
     finally:
         if connection and connection.is_open:
@@ -134,7 +133,7 @@ def insult_sender_worker(host_url, queue_name, results_mp_queue, num_messages_to
 
     except Exception as e:
         print(f"StressTest Insult Worker Major Error: {e}")
-        error_count += (num_messages_to_count - sent_count)
+        error_count += (num_messages_to_send - sent_count)
     finally:
         if connection and connection.is_open:
             connection.close()

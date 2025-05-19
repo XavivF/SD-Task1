@@ -5,7 +5,7 @@ from multiprocessing import Event, Process
 import Pyro4
 import pika
 import config
-
+from Pyro4 import errors
 
 class InsultClientDynamic:
     def __init__(self):
@@ -13,8 +13,7 @@ class InsultClientDynamic:
         try:
             self.pyro_ns = Pyro4.locateNS(host=config.PYRO_NS_HOST, port=config.PYRO_NS_PORT)
         except Pyro4.errors.NamingError:
-            print(
-                f"Client: Pyro Name Server not found at {config.PYRO_NS_HOST}:{config.PYRO_NS_PORT}. Some functions might fail.")
+            print(f"Client: Pyro Name Server not found at {config.PYRO_NS_HOST}:{config.PYRO_NS_PORT}. Some functions might fail.")
 
         self.insult_service_proxy = None
         self.scaler_manager_proxy = None

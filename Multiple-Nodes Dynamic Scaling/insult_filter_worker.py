@@ -47,6 +47,7 @@ class InsultFilterWorker:
             # print(f"[Worker {self.worker_id}] Cannot start without RabbitMQ channel. Exiting.")
             return
 
+        method_frame = None
         while not self.stop_event.is_set():
             try:
                 method_frame, properties, body = self.channel.basic_get(queue=config.TEXT_QUEUE_NAME, auto_ack=True)

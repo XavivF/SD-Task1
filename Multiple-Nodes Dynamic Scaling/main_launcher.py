@@ -5,7 +5,7 @@ from multiprocessing import Process
 
 from scaler_manager import ScalerManagerPyro
 from insult_service import InsultServicePyro, start_insult_service_components
-
+from Pyro4 import errors
 
 def run_pyro_service(service_class, service_name_in_ns, pyro_daemon_host):
     """Generic function to run a Pyro service."""
@@ -23,8 +23,7 @@ def run_pyro_service(service_class, service_name_in_ns, pyro_daemon_host):
         print(f"Service '{service_name_in_ns}' registered with URI {uri}. Ready.")
         daemon.requestLoop()
     except Pyro4.errors.NamingError as e_ns:
-        print(
-            f"Pyro Naming Server error for '{service_name_in_ns}': {e_ns}. Is Name Server running at {config.PYRO_NS_HOST}:{config.PYRO_NS_PORT}?")
+        print(f"Pyro Naming Server error for '{service_name_in_ns}': {e_ns}. Is Name Server running at {config.PYRO_NS_HOST}:{config.PYRO_NS_PORT}?")
     except Exception as e:
         print(f"Error running Pyro service '{service_name_in_ns}': {e}")
     finally:
@@ -35,8 +34,8 @@ def run_pyro_service(service_class, service_name_in_ns, pyro_daemon_host):
             try:
                 ns.remove(service_name_in_ns)
                 print(f"Service '{service_name_in_ns}' unregistered.")
-            except Exception as e_unreg:
-                print(f"Error unregistering '{service_name_in_ns}': {e_unreg}")
+            except Exception as e_unregistered:
+                print(f"Error unregistering '{service_name_in_ns}': {e_unregistered}")
 
 
 if __name__ == "__main__":
