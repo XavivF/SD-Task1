@@ -24,7 +24,7 @@ class InsultProcessorWorker:
         except pika.exceptions.AMQPConnectionError as e:
             print(f"[InsultProcessorWorker {self.worker_id}] Error connecting to RabbitMQ: {e}. Retrying in 5s...")
             time.sleep(5)
-            self.connect_rabbitmq()  # Reintent
+            self.connect_rabbitmq()  # Retry
 
     def run(self):
         # print(f"[InsultProcessorWorker {self.worker_id}] Starting...")

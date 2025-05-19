@@ -1,7 +1,7 @@
 import pika
 import time
 import config
-from redis_manager import redis_cli  # Usarem la instància singleton
+from redis_manager import redis_cli  # We will use the singleton instance
 from multiprocessing import Event
 
 
@@ -75,7 +75,7 @@ class InsultFilterWorker:
         # print(f"[Worker {self.worker_id}] Shutdown complete.")
 
 
-# Per provar el worker individualment (opcional)
+# To test the worker individually (optional)
 if __name__ == '__main__':
     print("Running InsultFilterWorker in standalone mode for testing.")
 
