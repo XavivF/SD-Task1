@@ -137,13 +137,13 @@ Keep this terminal open.
 #### 3. Start the Insult Service
 
 ```bash
-    python3 InsultService.py
+python3 InsultService.py
 ```
 
 ### 4. Start the Insult Filter
 
 ```bash
-    python3 InsultFilter.py
+python3 InsultFilter.py
 ```
 
 Leave these services running while you execute the stress tests. They will handle incoming 
@@ -152,7 +152,7 @@ requests via Redis and expose their processed counts via Pyro.
 #### 5. Start the Subscriber
 
 ```bash
-    python3 InsultSubscriber.py
+python3 InsultSubscriber.py
 ```
 
 Keep this terminal open to see received insults.
@@ -835,7 +835,7 @@ python -m Pyro4.naming
 Open a new terminal and run the main_launcher.py script. This script starts the ScalerManager (which dynamically manages worker processes) and the InsultService components (including the broadcaster).
 
 ```bash
-    python main_launcher.py
+python main_launcher.py
 ```
 
 This terminal will show output from the ScalerManager's main loop and worker scaling decisions.
