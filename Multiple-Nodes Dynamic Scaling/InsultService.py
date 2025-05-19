@@ -3,7 +3,7 @@ import time
 import random
 import Pyro4
 import config
-from redis_manager import redis_cli
+from RedisManager import redis_cli
 from multiprocessing import Process
 
 @Pyro4.expose

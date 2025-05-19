@@ -8,9 +8,9 @@ import threading
 import config
 
 from Pyro4 import errors
-from insult_filter_worker import InsultFilterWorker
-from insult_processor_worker import InsultProcessorWorker
-from redis_manager import redis_cli
+from InsultFilterWorker import InsultFilterWorker
+from InsultProcessorWorker import InsultProcessorWorker
+from RedisManager import redis_cli
 
 
 @Pyro4.expose
@@ -435,11 +435,9 @@ class ScalerManagerPyro:
             }
         }
 
-    # get_censored_texts_sample remains the same. Assumes redis_cli is already connected.
     @Pyro4.expose
-    def get_censored_texts_sample(self, count=10):
-         """Returns a sample of censored texts from Redis."""
-         return redis_cli.get_censored_texts(0, count - 1)
+    def get_censored_texts(self):
+         return redis_cli.get_censored_texts(0, -1)
 
     @Pyro4.expose
     def reset_counter(self):

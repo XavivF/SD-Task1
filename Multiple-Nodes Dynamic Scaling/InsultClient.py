@@ -72,6 +72,7 @@ class InsultClientDynamic:
                 body=text,
                 properties=pika.BasicProperties(delivery_mode=2)
             )
+            print(f"Client: Sent text to filter: '{text}'")
         except pika.exceptions.AMQPConnectionError as e:
             print(f"Client: Error sending text to RabbitMQ: {e}")
 
@@ -113,12 +114,12 @@ class InsultClientDynamic:
             print("Client: ScalerManager proxy not available.")
         return {}
 
-    def get_censored_texts_sample_from_scaler(self, count=5):
+    def get_censored_texts_from_scaler(self):
         if self.scaler_manager_proxy:
             try:
-                return self.scaler_manager_proxy.get_censored_texts_sample(count)
+                return self.scaler_manager_proxy.get_censored_texts()
             except Exception as e:
-                print(f"Client: Error calling ScalerManager.get_censored_texts_sample(): {e}")
+                print(f"Client: Error calling ScalerManager.get_censored_texts(): {e}")
         else:
             print("Client: ScalerManager proxy not available.")
         return []
@@ -144,7 +145,7 @@ def continuous_text_and_insult_sender(dynamic_client: InsultClientDynamic, stop_
             dynamic_client.publish_new_insult_to_queue(insult)
             insult_counter += 1
 
-        sleep_time = random.uniform(0.05, 0.5)
+        sleep_time = random.uniform(1, 2)
 
         start_sleep = time.time()
         while time.time() - start_sleep < sleep_time:
@@ -203,7 +204,7 @@ if __name__ == "__main__":
                 print("  No stats received.")
 
         elif args.get_censored_sample:
-            sample = client.get_censored_texts_sample_from_scaler()
+            sample = client.get_censored_texts_from_scaler()
             print("Censored Texts Sample:", sample)
 
         else:

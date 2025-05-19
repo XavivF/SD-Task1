@@ -3,8 +3,8 @@ import Pyro4
 import config
 from multiprocessing import Process
 
-from scaler_manager import ScalerManagerPyro
-from insult_service import InsultServicePyro, start_insult_service_components
+from ScalerManager import ScalerManagerPyro
+from InsultService import InsultServicePyro, start_insult_service_components
 from Pyro4 import errors
 
 def run_pyro_service(service_class, service_name_in_ns, pyro_daemon_host):

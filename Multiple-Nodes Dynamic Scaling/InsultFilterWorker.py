@@ -1,7 +1,7 @@
 import pika
 import time
 import config
-from redis_manager import redis_cli  # We will use the singleton instance
+from RedisManager import redis_cli  # We will use the singleton instance
 from multiprocessing import Event
 
 
@@ -30,11 +30,11 @@ class InsultFilterWorker:
 
     def filter_text(self, text: str) -> str:
         current_insults = self.insults
-
         words = text.split()
         censored_words = []
         for word in words:
-            if word in current_insults:
+            clean_word = word.strip('.,!?;:"\'').lower()
+            if clean_word in current_insults:
                 censored_words.append("CENSORED")
             else:
                 censored_words.append(word)

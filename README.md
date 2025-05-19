@@ -29,7 +29,7 @@ Start a RabbitMQ container named rabbitmq-p in detached mode, exposing ports 567
 sudo docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:management
 ```
 # Installation of dependencies
-The project requires several Python packages to run. You can install them using pip. 
+The project requires several python3 packages to run. You can install them using pip. 
 
 ```bash
 pip install pika pyro4 redis requests
@@ -53,7 +53,7 @@ This section provides instructions to set up and run the XML-RPC based implement
 
 ### Running the Services
 
-You need to start each service and the subscriber in a separate terminal or command prompt window. Ensure you are in the directory containing the Python files.
+You need to start each service and the subscriber in a separate terminal or command prompt window. Ensure you are in the directory containing the python3 files.
 
 #### 1. Start the Insult Service:
 ```
@@ -826,7 +826,7 @@ docker start rabbitmq
 Open a terminal and run the Pyro4 naming server. This must be running before you start the main launcher.
 
 ```bash
-python -m Pyro4.naming
+python3 -m Pyro4.naming
 ```
 
 
@@ -835,7 +835,7 @@ python -m Pyro4.naming
 Open a new terminal and run the main_launcher.py script. This script starts the ScalerManager (which dynamically manages worker processes) and the InsultService components (including the broadcaster).
 
 ```bash
-python main_launcher.py
+python3 MainLauncher.py
 ```
 
 This terminal will show output from the ScalerManager's main loop and worker scaling decisions.
@@ -845,7 +845,7 @@ This terminal will show output from the ScalerManager's main loop and worker sca
 Open another terminal and run insult_subscriber.py. This will connect to RabbitMQ and print any insults broadcast by the InsultService.
 
 ```bash
-python insult_subscriber.py
+python3 InsultSubscriber.py
 ```
 
 The core system (ScalerManager, InsultService, and dynamically scaled workers) should now be running.
@@ -861,7 +861,7 @@ Open a new terminal and run stress_test.py. You must provide the total number of
 To test the text filtering (InsultFilterWorker pool):
 
 ```bash
-python Stress_test.py filter_text -m <number_of_messages>
+python3 StressTest.py filter_text -m <number_of_messages>
 ```
 
 Replace <number_of_messages> with the desired total number of texts to send (e.g., 10000, 50000).
@@ -869,7 +869,7 @@ Replace <number_of_messages> with the desired total number of texts to send (e.g
 To test the insult processing (InsultProcessorWorker pool):
 
 ```bash
-python Stress_test.py add_insult -m <number_of_messages>
+python3 StressTest.py add_insult -m <number_of_messages>
 ```
 
 Replace <number_of_messages> with the desired total number of insults to send.
@@ -877,7 +877,7 @@ Replace <number_of_messages> with the desired total number of insults to send.
 Example: To send 100,000 texts to the filter:
 
 ```bash
-python Stress_test.py filter_text -m 100000
+python3 StressTest.py filter_text -m 100000
 ```
 
 The script will:
@@ -895,29 +895,23 @@ You can use the insult_client.py script to interact with the running system and 
 Get all insults stored in Redis:
 
 ```bash
-python insult_client.py --get-insults
+python3 InsultClient.py --get-insults
 ```
 
 Get statistics from the ScalerManager (including queue lengths and active workers):
 
 ```bash
-python insult_client.py --get-scaler-stats
+python3 InsultClient.py --get-scaler-stats
 ```
 
 Get a sample of censored texts from Redis:
 
 ```bash
-python insult_client.py --get-censored-sample
-```
-
-Send a single text to the filter:
-
-```bash
-python insult_client.py --send-text "This is a test message."
+python3 InsultClient.py --get-censored-sample
 ```
 
 Add a single insult to the processing queue:
 
 ```bash
-python insult_client.py --add-insult "new_test_insult"
+python3 InsultClient.py --add-insult "new_test_insult"
 ```

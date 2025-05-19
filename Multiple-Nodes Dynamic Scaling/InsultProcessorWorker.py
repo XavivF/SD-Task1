@@ -1,7 +1,7 @@
 import pika
 import time
 import config
-from redis_manager import redis_cli
+from RedisManager import redis_cli
 from multiprocessing import Event
 
 
