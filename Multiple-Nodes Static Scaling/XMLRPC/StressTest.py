@@ -11,7 +11,7 @@ LOAD_BALANCER_URL = "http://localhost:9000/RPC2"
 REDIS_COUNTER = 'COUNTER'
 
 DEFAULT_DURATION = 10  # Seconds
-DEFAULT_CONCURRENCY = 5 # Number of concurrent processes/clients
+DEFAULT_CONCURRENCY = 10 # Number of concurrent processes/clients
 
 # --- Data for tests ---
 INSULTS_TO_ADD = ["tonto", "lleig", "boig", "idiota", "estúpid", "inútil", "desastre", "fracassat", "covard", "mentider",
@@ -46,16 +46,21 @@ def worker_add_insult(lb_url, results_queue, n_msg):
         service2 = xmlrpc.client.ServerProxy(f"http://{service2_url}/RPC2", allow_none=True, verbose=False)
         service3 = xmlrpc.client.ServerProxy(f"http://{service3_url}/RPC2", allow_none=True, verbose=False)
 
+        actual_server1 = lb_proxy.get_next_service_proxy()['_ServerProxy__host']
+        actual_server2 = lb_proxy.get_next_service_proxy()['_ServerProxy__host']
+        actual_server3 = lb_proxy.get_next_service_proxy()['_ServerProxy__host']
+        servers = [actual_server1, actual_server2, actual_server3]
+
         while local_request_count < n_msg:
             try:
                 insult = random.choice(INSULTS_TO_ADD) + str(random.randint(1, 100000))
-                actual_server = lb_proxy.get_next_service_proxy()
-                actual_host = actual_server['_ServerProxy__host']  # Extreu el host del servidor actual
-                if actual_host == service1_url:
+                actual = servers[local_request_count % len(servers)]
+                #actual_host = actual_server['_ServerProxy__host']  # Extreu el host del servidor actual
+                if actual == service1_url:
                     service1.add_insult(insult)
-                elif actual_host == service2_url:
+                elif actual == service2_url:
                     service2.add_insult(insult)
-                elif actual_host == service3_url:
+                elif actual == service3_url:
                     service3.add_insult(insult)
 
                 local_request_count += 1

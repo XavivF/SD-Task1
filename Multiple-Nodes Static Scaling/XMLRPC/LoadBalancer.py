@@ -131,14 +131,17 @@ class XmlrpcLoadBalancer:
 # --- Load Balancer Server Configuration and Execution ---
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="XML-RPC Load Balancer")
-    parser.add_argument("--port", type=int, required=True, help="Port to bind the load balancer to")
-    parser.add_argument("--service_urls", nargs='+', required=True,
+    parser.add_argument("--port", type=int, default=9000, help="Port to bind the load balancer to")
+    parser.add_argument("--service_urls", nargs='+',
                         help="List of URLs of instances of InsultService (e.g., http://localhost:8001/RPC2 http://localhost:8002/RPC2)")
-    parser.add_argument("--filter_urls", nargs='+', required=True,
+    parser.add_argument("--filter_urls", nargs='+',
                         help="List of URLs of instances of InsultFilter (e.g., http://localhost:8011/RPC2 http://localhost:8012/RPC2)")
 
     args = parser.parse_args()
-
+    if args.filter_urls is None:
+        args.filter_urls = []
+    if args.service_urls is None:
+        args.service_urls = []
     lb_instance = XmlrpcLoadBalancer(args.service_urls, args.filter_urls)
 
     print(f"llsita proxies: {lb_instance.service_proxies}")
