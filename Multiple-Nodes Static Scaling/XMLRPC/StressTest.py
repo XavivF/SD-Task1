@@ -33,29 +33,25 @@ def worker_add_insult(urls, results_queue, n_msg):
     local_error_count = 0
     pid = os.getpid()
     lb_proxy = None
-
     try:
+        servers = []
+        for url in urls:
+            servers.append(url)
 
-        service1_url = urls[0]
-        service2_url = urls[1]
-        service3_url = urls[2]
+        services = []
 
-        service1 = xmlrpc.client.ServerProxy(f"http://{service1_url}/RPC2", allow_none=True, verbose=False)
-        service2 = xmlrpc.client.ServerProxy(f"http://{service2_url}/RPC2", allow_none=True, verbose=False)
-        service3 = xmlrpc.client.ServerProxy(f"http://{service3_url}/RPC2", allow_none=True, verbose=False)
-        servers = [service1, service2, service3]
+        for server in servers:
+            services.append(xmlrpc.client.ServerProxy(f"http://{server}/RPC2", allow_none=True, verbose=False))
 
         while local_request_count < n_msg:
             try:
                 insult = random.choice(INSULTS_TO_ADD) + str(random.randint(1, 100000))
-                actual = servers[local_request_count % len(urls)]
+                actual = services[local_request_count % len(servers)]
 
-                if actual._ServerProxy__host == service1_url:
-                    service1.add_insult(insult)
-                elif actual._ServerProxy__host == service2_url:
-                    service2.add_insult(insult)
-                elif actual._ServerProxy__host == service3_url:
-                    service3.add_insult(insult)
+                for idx, srv in enumerate(servers):
+                    if actual._ServerProxy__host == srv:
+                        services[idx].add_insult(insult)
+                        break
 
                 local_request_count += 1
             except Exception as e:
@@ -79,28 +75,25 @@ def worker_filter_text(urls, results_queue, n_msg):
     local_error_count = 0
     pid = os.getpid()
     try:
+        servers = []
+        for url in urls:
+            servers.append(url)
 
-        service1_url = urls[0]
-        service2_url = urls[1]
-        service3_url = urls[2]
+        services = []
 
-        service1 = xmlrpc.client.ServerProxy(f"http://{service1_url}/RPC2", allow_none=True, verbose=False)
-        service2 = xmlrpc.client.ServerProxy(f"http://{service2_url}/RPC2", allow_none=True, verbose=False)
-        service3 = xmlrpc.client.ServerProxy(f"http://{service3_url}/RPC2", allow_none=True, verbose=False)
-        servers = [service1, service2, service3]
+        for server in servers:
+            services.append(xmlrpc.client.ServerProxy(f"http://{server}/RPC2", allow_none=True, verbose=False))
+
 
         while local_request_count < n_msg:
             try:
                 text = random.choice(TEXTS_TO_FILTER)
+                actual = services[local_request_count % len(servers)]
 
-                actual = servers[local_request_count % len(urls)]
-
-                if actual._ServerProxy__host == service1_url:
-                    service1.filter(text)
-                elif actual._ServerProxy__host == service2_url:
-                    service2.filter(text)
-                elif actual._ServerProxy__host == service3_url:
-                    service3.filter(text)
+                for idx, srv in enumerate(servers):
+                    if actual._ServerProxy__host == srv:
+                        services[idx].filter(text)
+                        break
 
                 local_request_count += 1
             except Exception as e:
