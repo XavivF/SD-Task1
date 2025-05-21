@@ -16,8 +16,6 @@ class InsultFilter:
     def add_insult(self, insult):
         if insult not in self.insults_List:
             self.insults_List.append(insult)
-        self.client.incr(self.counter_key)
-
             # print(f"Insult added: {insult}")
         # else:
             # print(f"Insult already exists: {insult}")
@@ -36,6 +34,7 @@ class InsultFilter:
     def filter_service(self, text):
         censored_text = self.filter_text(text)
         self.censored_Texts.append(censored_text)
+        self.client.incr(self.counter_key)
         return censored_text.strip() # We add strip() to remove trailing spaces
 
     def get_censored_texts(self):

@@ -18,7 +18,7 @@ class InsultProcessorWorker:
             self.connection = pika.BlockingConnection(pika.URLParameters(config.RABBITMQ_URL))
             self.channel = self.connection.channel()
             self.channel.queue_declare(queue=config.INSULTS_PROCESSING_QUEUE_NAME, durable=True)
-            self.channel.basic_qos(prefetch_count=1)
+            self.channel.basic_qos(prefetch_count=20)
             print(f"[InsultProcessorWorker {self.worker_id}] Connected to RabbitMQ, consuming from '{config.INSULTS_PROCESSING_QUEUE_NAME}'.")
         except pika.exceptions.AMQPConnectionError as e:
             print(f"[InsultProcessorWorker {self.worker_id}] Error connecting to RabbitMQ: {e}. Retrying in 5s...")

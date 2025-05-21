@@ -21,7 +21,7 @@ class InsultFilterWorker:
             self.channel = self.connection.channel()
             self.channel.queue_declare(queue=config.TEXT_QUEUE_NAME, durable=True)
             self.channel.exchange_declare(exchange=config.INSULTS_EXCHANGE_NAME, exchange_type='fanout')
-            self.channel.basic_qos(prefetch_count=1)
+            self.channel.basic_qos(prefetch_count=20)
             print(f"[Worker {self.worker_id}] Connected to RabbitMQ.")
         except pika.exceptions.AMQPConnectionError as e:
             print(f"[Worker {self.worker_id}] Error connecting to RabbitMQ: {e}. Retrying in 5s...")
