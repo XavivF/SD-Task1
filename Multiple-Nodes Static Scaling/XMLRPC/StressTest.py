@@ -49,14 +49,8 @@ def worker_add_insult(lb_url, results_queue, n_msg):
         while local_request_count < n_msg:
             try:
                 insult = random.choice(INSULTS_TO_ADD) + str(random.randint(1, 100000))
-                actual_server = lb_proxy.get_next_service_proxy()
-                actual_host = actual_server['_ServerProxy__host']  # Extreu el host del servidor actual
-                if actual_host == service1_url:
-                    service1.add_insult(insult)
-                elif actual_host == service2_url:
-                    service2.add_insult(insult)
-                elif actual_host == service3_url:
-                    service3.add_insult(insult)
+                actual_server = random.choice([service1, service2, service3])
+                actual_server.add_insult(insult)
 
                 local_request_count += 1
             except Exception as e:
