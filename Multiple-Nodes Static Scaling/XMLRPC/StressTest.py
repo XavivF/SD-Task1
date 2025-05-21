@@ -38,20 +38,29 @@ def worker_add_insult(lb_url, results_queue, n_msg):
         # Create a proxy to the Load Balancer
         lb_proxy = xmlrpc.client.ServerProxy(lb_url, allow_none=True, verbose=False)
 
-        service1 = xmlrpc.client.ServerProxy("http://localhost:8000/RPC2", allow_none=True, verbose=False)
-        service2 = xmlrpc.client.ServerProxy("http://localhost:8001/RPC2", allow_none=True, verbose=False)
-        service3 = xmlrpc.client.ServerProxy("http://localhost:8002/RPC2", allow_none=True, verbose=False)
+        service1_url = "localhost:8000"
+        service2_url = "localhost:8001"
+        service3_url = "localhost:8002"
+
+        service1 = xmlrpc.client.ServerProxy(f"http://{service1_url}/RPC2", allow_none=True, verbose=False)
+        service2 = xmlrpc.client.ServerProxy(f"http://{service2_url}/RPC2", allow_none=True, verbose=False)
+        service3 = xmlrpc.client.ServerProxy(f"http://{service3_url}/RPC2", allow_none=True, verbose=False)
 
         while local_request_count < n_msg:
             try:
                 insult = random.choice(INSULTS_TO_ADD) + str(random.randint(1, 100000))
                 actual_server = lb_proxy.get_next_service_proxy()
-                if actual_server == service1:
+                actual_host = actual_server['_ServerProxy__host']  # Extreu el host del servidor actual
+                if actual_host == service1_url:
                     service1.add_insult(insult)
-                elif actual_server == service2:
+                elif actual_host == service2_url:
                     service2.add_insult(insult)
-                elif actual_server == service3:
+                elif actual_host == service3_url:
                     service3.add_insult(insult)
+
+                local_request_count += 1
+            except Exception as e:
+                print(f"Error: {e}")
                 local_request_count += 1
             except Exception as e:
                 print(f"[Process {pid}] Error adding insult (XML-RPC via LB): {e}", file=sys.stderr)
