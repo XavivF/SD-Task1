@@ -29,18 +29,15 @@ TEXTS_TO_FILTER = [
 ]
 
 # --- Worker Function ---
-def worker_request(results_queue, ns_host, ns_port, mode, n_msg):
+def worker_request(results_queue, ns_host, ns_port, mode, n_msg, url_service, url_filter):
     requests_sent = 0
     errors = 0
-    load_balancer = None
 
     try:
         if ns_host and ns_port:
             ns = Pyro4.locateNS(host=ns_host, port=ns_port)
         else:
             ns = Pyro4.locateNS()
-        load_balancer = Pyro4.Proxy(ns.lookup(DEFAULT_PYRO_LOADBALANCER))
-        load_balancer._pyroTimeout = 10  # Timeout for proxy calls
     except Pyro4.errors.NamingError:
         print(f"Worker ERROR: LoadBalancer '{DEFAULT_PYRO_LOADBALANCER}' not found. Make sure it is running.", file=sys.stderr)
         results_queue.put((0, 1))
@@ -50,29 +47,52 @@ def worker_request(results_queue, ns_host, ns_port, mode, n_msg):
         results_queue.put((0, 1))
         return
 
-    while requests_sent < n_msg:
-        try:
-            if mode == 'add_insult':
+    if mode == 'add_insult':
+        urls = []
+        for url in url_service:
+            urls.append(Pyro4.Proxy(ns.lookup(url)))
+        while requests_sent < n_msg:
+            try:
+                service = urls[requests_sent % len(urls)]
                 data = random.choice(INSULTS_TO_ADD) + str(random.randint(1, 10000))
-                load_balancer.add_insult(data)
-                requests_sent+=1
-            elif mode == 'filter_text':
+                service.add_insult(data)
+                requests_sent += 1
+            except Pyro4.errors.CommunicationError as e:
+                print(f"Worker ERROR: Communication error with the LoadBalancer: {e}", file=sys.stderr)
+                errors += 1
+            except Exception as e:
+                print(f"Worker ERROR during the call: {e}", file=sys.stderr)
+                errors += 1
+
+    elif mode == 'filter_text':
+        urls = []
+        for url in url_filter:
+            urls.append(Pyro4.Proxy(ns.lookup(url)))
+        while requests_sent < n_msg:
+            try:
+                service = urls[requests_sent % len(urls)]
                 data = random.choice(TEXTS_TO_FILTER)
-                load_balancer.filter_service(data)
-                requests_sent+=1
-        except Pyro4.errors.CommunicationError as e:
-            print(f"Worker ERROR: Communication error with the LoadBalancer: {e}", file=sys.stderr)
-            errors += 1
-        except Exception as e:
-            print(f"Worker ERROR during the call: {e}", file=sys.stderr)
-            errors += 1
+                service.filter_service(data)
+                requests_sent += 1
+            except Pyro4.errors.CommunicationError as e:
+                print(f"Worker ERROR: Communication error with the LoadBalancer: {e}", file=sys.stderr)
+                errors += 1
+            except Exception as e:
+                print(f"Worker ERROR during the call: {e}", file=sys.stderr)
+                errors += 1
     results_queue.put((requests_sent, errors))
 
-def run_stress_test(mode, ns_host, ns_port, messages, num_service_instances):
-    print(f"Starting Pyro stress test in '{mode}'  via Load Balancer...")
-    print(f"Load Balancer name: {DEFAULT_PYRO_LOADBALANCER}")
+def run_stress_test(mode, ns_host, ns_port, messages, names_service, names_filter):
+    print(f"Starting Pyro stress test in '{mode}' via Load Balancer...")
     print(f"Concurrency: {DEFAULT_CONCURRENCY} processes")
     print("-" * 30)
+
+    num_service_instances = 0
+
+    if mode == 'add_insult':
+        num_service_instances = len(names_service)
+    elif mode == 'filter_text':
+        num_service_instances = len(names_filter)
 
     n_messages = messages // DEFAULT_CONCURRENCY
     results_queue = Queue()
@@ -85,11 +105,13 @@ def run_stress_test(mode, ns_host, ns_port, messages, num_service_instances):
         print(f"Severe error connecting to Redis in run_stress_test: {e}", file=sys.stderr)
         exit(1)
 
+    redis_client.set(REDIS_COUNTER, 0)
+
     start_time = time.time()
     # Start worker processes
     print("Starting worker processes...")
     for _ in range(DEFAULT_CONCURRENCY):
-        p = Process(target=worker_request, args=(results_queue, ns_host, ns_port, mode, n_messages))
+        p = Process(target=worker_request, args=(results_queue, ns_host, ns_port, mode, n_messages, names_service, names_filter))
         processes.append(p)
         p.start()
 
@@ -153,12 +175,14 @@ if __name__ == "__main__":
                         help="La funcionalitat a provar ('add_insult' o 'filter_text')")
     parser.add_argument("-m", "--messages", type=int, required=True,
                         help=f"Number of messages to send")
-    parser.add_argument("-n", "--num-instances", type=int, default=1, required=True,
-                        help=f"Number of service instances to retrieve stats from (default: 1)")
     parser.add_argument("--ns-host", type=str, default=None, help="Host del Name Server (per defecte: localitzar via broadcast)")
     parser.add_argument("--ns-port", type=int, default=None, help="Port del Name Server (per defecte: localitzar via broadcast)")
+    parser.add_argument("-ns", "--names-service", nargs='+', default=[],
+                        help="List of InsultService pyro names separated by spaces (e.g., pyro.service.1 pyro.service.2)")
+    parser.add_argument("-nf", "--names-filter", nargs='+', default=[],
+                        help="List of InsultFilter pyro names separated by spaces (e.g., pyro.filter.1 pyro.filter.2)")
 
 
     args = parser.parse_args()
 
-    run_stress_test(args.mode, args.ns_host, args.ns_port, args.messages, args.num_instances)
+    run_stress_test(args.mode, args.ns_host, args.ns_port, args.messages, args.names_service, args.names_filter)

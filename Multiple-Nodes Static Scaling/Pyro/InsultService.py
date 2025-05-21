@@ -2,6 +2,7 @@ import argparse
 import random
 import Pyro4
 import sys
+import redis
 from Pyro4 import errors
 
 @Pyro4.expose
@@ -10,13 +11,13 @@ class InsultService:
     def __init__(self):
         self.insults_List = []
         self.subscribers = []
+        self.counter_key = "COUNTER"
+        self.client = redis.Redis(db=0, decode_responses=True)
 
     def add_insult(self, insult):
         if insult not in self.insults_List:
             self.insults_List.append(insult)
-            # print(f"Insult added: {insult} Count: {self.processed_requests_count}")
-        # else:
-            # print(f"Insult already exists: {insult}")
+        self.client.incr(self.counter_key)
 
     def get_insults(self):
         return self.insults_List

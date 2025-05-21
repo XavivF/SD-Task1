@@ -1,6 +1,7 @@
 import Pyro4
 import argparse
 import sys
+import redis
 from Pyro4 import errors
 
 @Pyro4.expose
@@ -9,10 +10,14 @@ class InsultFilter:
     def __init__(self):
         self.censored_Texts = []
         self.insults_List = ["beneit", "capsigrany", "ganàpia", "nyicris", "gamarús", "bocamoll", "murri", "dropo", "bleda", "xitxarel·lo"]
+        self.counter_key = "COUNTER"
+        self.client = redis.Redis(db=0, decode_responses=True)
 
     def add_insult(self, insult):
         if insult not in self.insults_List:
             self.insults_List.append(insult)
+        self.client.incr(self.counter_key)
+
             # print(f"Insult added: {insult}")
         # else:
             # print(f"Insult already exists: {insult}")
