@@ -327,7 +327,7 @@ class ScalerManagerPyro:
                 )
                 insult_processor_last_scale_time = current_time
 
-            time.sleep(1)  # Check every second if it's time to scale any pool
+            time.sleep(0.1)  # Check every tenth of a second if it's time to scale any pool
 
         # --- FINAL CLEANUP CODE (EXECUTED AFTER THE WHILE LOOP) ---
         # This block is executed when self.stop_main_loop_event.is_set() is True
