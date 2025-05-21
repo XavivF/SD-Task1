@@ -47,11 +47,7 @@ def worker_add_insult(urls, results_queue, n_msg):
             try:
                 insult = random.choice(INSULTS_TO_ADD) + str(random.randint(1, 100000))
                 actual = services[local_request_count % len(servers)]
-
-                for idx, srv in enumerate(servers):
-                    if actual._ServerProxy__host == srv:
-                        services[idx].add_insult(insult)
-                        break
+                actual.add_insult(insult)
 
                 local_request_count += 1
             except Exception as e:
@@ -84,16 +80,11 @@ def worker_filter_text(urls, results_queue, n_msg):
         for server in servers:
             services.append(xmlrpc.client.ServerProxy(f"http://{server}/RPC2", allow_none=True, verbose=False))
 
-
         while local_request_count < n_msg:
             try:
                 text = random.choice(TEXTS_TO_FILTER)
                 actual = services[local_request_count % len(servers)]
-
-                for idx, srv in enumerate(servers):
-                    if actual._ServerProxy__host == srv:
-                        services[idx].filter(text)
-                        break
+                actual.filter(text)
 
                 local_request_count += 1
             except Exception as e:
