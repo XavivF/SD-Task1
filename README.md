@@ -361,7 +361,7 @@ python3 InsultFilter.py --port <port_filter_2>
 # python3 InsultFilter.py --port 8013
 ```
 
-#### 3. Start the Load Balancer
+#### 3. Start the Load Balancer (Not needed for StressTest.py)
 
 The Load Balancer (LoadBalancer.py) needs to know the URLs of all running
 Insult Service and Insult Filter instances. Specify them using the --service_urls
@@ -377,7 +377,7 @@ python3 LoadBalancer.py --port <load_balancer_port> --service_urls <service_url_
 python3 LoadBalancer.py --port 9000 --service_urls http://localhost:8001/RPC2 http://localhost:8002/RPC2 --filter_urls http://localhost:8011/RPC2 http://localhost:8012/RPC2 http://localhost:8013/RPC2
 ```
 
-#### 4. Start the Subscriber
+#### 4. Start the Subscriber (Not Needed for StressTest.py)
 
 The Subscriber (InsultSubscriber.py) listens for broadcasted insults from the Insult Service 
 instances. It needs a specific port to run on. The InsultClient.py is configured to register
@@ -394,7 +394,7 @@ python3 InsultSubscriber.py --subscriber-port <subscriber_port>
 python3 InsultSubscriber.py --subscriber-port 8050
 ```
 
-#### 5. Run the Client (Demonstration and Manual Testing)
+#### 5. Run the Client (Demonstration and Manual Testing, Not needed for Stress Test)
 
 The InsultClient.py is a basic client to interact with the system via the Load Balancer. It demonstrates adding insults, sending text for filtering, and is configured to register the Subscriber with the Load Balancer upon startup. It also has background processes simulating the broadcast and filtering load.
 
@@ -424,25 +424,17 @@ python3 StressTest.py <mode> [options]
 ```
 **Arguments:**
 * mode: Choose either add_insult to test the Insult Service (via LB) or filter_text to test the Insult Filter (via LB).
-* -u, --lb_url: URL of the XML-RPC Load Balancer (default: http://localhost:9000/RPC2).
 * -m, --messages: Number of messages to send.
-* -n, --num-service-instances: Number of service instances to retrieve stats from (default: 1)
+* --service_urls SERVICE_URLS [SERVICE_URLS ...]
+                        List of URLs of instances of InsultService (e.g., localhost:8000 localhost:8001) (default: [])
+* --filter_urls FILTER_URLS [FILTER_URLS ...]
+                        List of URLs of instances of InsultFilter (e.g., localhost:8010 localhost:8011) (default: [])
 
 **Example:**
 ```bash
-python3 StressTest.py add_insult -d 30 -c 50 -u http://localhost:9000/RPC2
+python3 StressTest.py add_insult -m 10000 --service_urls localhost:8000 localhost:8001 localhost:8002 localhost:8003
 ```
 
-**Important Notes:**
-- Ensure all server instances (InsultService.py, InsultFilter.py), the Load Balancer 
-(LoadBalancer.py), and the Subscriber (InsultSubscriber.py) are running before starting
-the InsultClient.py or StressTest.py.
-- For static scaling analysis, you will typically run the StressTest.py with the same 
-configuration (duration, concurrency, mode) but with the Load Balancer configured to use
-a varying number of backend service/filter instances (e.g., 1, 2, 3 instances). Remember
-to restart the Load Balancer with the correct --service_urls and --filter_urls each time
-you change the number of backend instances.
-- Each component should ideally be run in its own terminal window for clarity and easy management.
 ### Redis Implementation
 
 #### 1. Start the Redis Docker Container

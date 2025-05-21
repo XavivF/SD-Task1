@@ -102,7 +102,7 @@ def worker_filter_text(urls, results_queue, n_msg):
         results_queue.put((local_request_count, local_error_count))
 
 # --- Main Test Function ---
-def run_stress_test(mode, lb_url, messages, service_url, filter_url):
+def run_stress_test(mode, messages, service_url, filter_url):
     print(f"Starting XML-RPC stress test in mode '{mode}' via Load Balancer...")
     print("-" * 30)
 
@@ -127,16 +127,6 @@ def run_stress_test(mode, lb_url, messages, service_url, filter_url):
     if num_service_instances == 0:
         print(f"Error: No instances provided for mode '{mode}'.", file=sys.stderr)
         exit(1)
-
-    lb_main_proxy = None
-    try:
-        lb_main_proxy = xmlrpc.client.ServerProxy(lb_url, allow_none=True, verbose=False)
-        lb_main_proxy.system.listMethods()
-        print("Successfully connected to Load Balancer.")
-    except Exception as e:
-        print(f"Error: Could not connect to or communicate with Load Balancer at {lb_url}: {e}", file=sys.stderr)
-        print("Please ensure the Load Balancer is running and accessible.")
-        return
 
     try:
         redis_client = redis.Redis(db=0, decode_responses=True,
@@ -207,7 +197,6 @@ def run_stress_test(mode, lb_url, messages, service_url, filter_url):
     print("-" * 30)
     print(f"Stress Test (XML-RPC via Load Balancer) - Results\n")
     print(f"Test Mode: {mode}")
-    print(f"Target URL (Load Balancer): {lb_url}")
     print(f"Total time sending requests: {actual_duration_client:.3f} seconds")
     print(f"Total time processing requests: {actual_duration_server:.3f} seconds")
     print("-" * 30)
@@ -249,8 +238,6 @@ if __name__ == "__main__":
         help="The XML-RPC functionality to test ('add_insult' for InsultService, 'filter_text' for InsultFilter).")
     parser.add_argument("-m", "--messages", type=int, required=True,
                         help=f"Number of messages to send")
-    parser.add_argument("-u", "--lb_url", type=str, default=LOAD_BALANCER_URL,
-        help="URL of the XML-RPC Load Balancer (e.g., http://localhost:9000/RPC2).")
     parser.add_argument("--service_urls", nargs='+', default=[],
                         help="List of URLs of instances of InsultService (e.g., localhost:8000 localhost:8001)")
     parser.add_argument("--filter_urls", nargs='+', default=[],
@@ -258,4 +245,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    run_stress_test(args.mode, args.lb_url, args.messages, args.service_urls, args.filter_urls)
+    run_stress_test(args.mode, args.messages, args.service_urls, args.filter_urls)
