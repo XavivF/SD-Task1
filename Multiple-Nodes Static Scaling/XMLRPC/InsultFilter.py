@@ -3,6 +3,9 @@ from xmlrpc.server import SimpleXMLRPCServer
 import argparse
 import sys
 
+import redis
+
+
 # Restrict to a particular path.
 class RequestHandler(SimpleXMLRPCRequestHandler):
     rpc_paths = ('/RPC2',)
@@ -19,6 +22,8 @@ class InsultFilter:
     def __init__(self):
         self.insults = ["tonto", "lleig", "boig", "idiota", "estúpid", "inútil", "desastre", "fracassat", "covard", "mentider"]
         self.results = []   # censored text results
+        self.counter_key = "COUNTER"
+        self.client = redis.Redis(db=0, decode_responses=True)
 
     def filter(self, text):
         censored_text = ""
@@ -29,7 +34,7 @@ class InsultFilter:
                 censored_text += word + " "
         if censored_text not in self.results:
             self.results.append(censored_text)
-        # print(f"Filtered text: {censored_text}")
+        self.client.incr(self.counter_key)
         return censored_text
 
     def add_insult(self, insult):

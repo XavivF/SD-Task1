@@ -28,39 +28,33 @@ TEXTS_TO_FILTER = [
 
 # --- Worker Functions ---
 # The worker connects to the Load Balancer (LB) and uses a single proxy to it.
-def worker_add_insult(lb_url, results_queue, n_msg):
+def worker_add_insult(urls, results_queue, n_msg):
     local_request_count = 0
     local_error_count = 0
     pid = os.getpid()
     lb_proxy = None
 
     try:
-        # Create a proxy to the Load Balancer
-        lb_proxy = xmlrpc.client.ServerProxy(lb_url, allow_none=True, verbose=False)
 
-        service1_url = "localhost:8000"
-        service2_url = "localhost:8001"
-        service3_url = "localhost:8002"
+        service1_url = urls[0]
+        service2_url = urls[1]
+        service3_url = urls[2]
 
         service1 = xmlrpc.client.ServerProxy(f"http://{service1_url}/RPC2", allow_none=True, verbose=False)
         service2 = xmlrpc.client.ServerProxy(f"http://{service2_url}/RPC2", allow_none=True, verbose=False)
         service3 = xmlrpc.client.ServerProxy(f"http://{service3_url}/RPC2", allow_none=True, verbose=False)
-
-        actual_server1 = lb_proxy.get_next_service_proxy()['_ServerProxy__host']
-        actual_server2 = lb_proxy.get_next_service_proxy()['_ServerProxy__host']
-        actual_server3 = lb_proxy.get_next_service_proxy()['_ServerProxy__host']
-        servers = [actual_server1, actual_server2, actual_server3]
+        servers = [service1, service2, service3]
 
         while local_request_count < n_msg:
             try:
                 insult = random.choice(INSULTS_TO_ADD) + str(random.randint(1, 100000))
-                actual = servers[local_request_count % len(servers)]
-                #actual_host = actual_server['_ServerProxy__host']  # Extreu el host del servidor actual
-                if actual == service1_url:
+                actual = servers[local_request_count % len(urls)]
+
+                if actual._ServerProxy__host == service1_url:
                     service1.add_insult(insult)
-                elif actual == service2_url:
+                elif actual._ServerProxy__host == service2_url:
                     service2.add_insult(insult)
-                elif actual == service3_url:
+                elif actual._ServerProxy__host == service3_url:
                     service3.add_insult(insult)
 
                 local_request_count += 1
@@ -80,19 +74,34 @@ def worker_add_insult(lb_url, results_queue, n_msg):
     finally:
         results_queue.put((local_request_count, local_error_count))
 
-def worker_filter_text(lb_url, results_queue, n_msg):
+def worker_filter_text(urls, results_queue, n_msg):
     local_request_count = 0
     local_error_count = 0
     pid = os.getpid()
-    lb_proxy = None
-
     try:
-        lb_proxy = xmlrpc.client.ServerProxy(lb_url, allow_none=True, verbose=False)
+
+        service1_url = urls[0]
+        service2_url = urls[1]
+        service3_url = urls[2]
+
+        service1 = xmlrpc.client.ServerProxy(f"http://{service1_url}/RPC2", allow_none=True, verbose=False)
+        service2 = xmlrpc.client.ServerProxy(f"http://{service2_url}/RPC2", allow_none=True, verbose=False)
+        service3 = xmlrpc.client.ServerProxy(f"http://{service3_url}/RPC2", allow_none=True, verbose=False)
+        servers = [service1, service2, service3]
 
         while local_request_count < n_msg:
             try:
                 text = random.choice(TEXTS_TO_FILTER)
-                lb_proxy.filter(text)
+
+                actual = servers[local_request_count % len(urls)]
+
+                if actual._ServerProxy__host == service1_url:
+                    service1.filter(text)
+                elif actual._ServerProxy__host == service2_url:
+                    service2.filter(text)
+                elif actual._ServerProxy__host == service3_url:
+                    service3.filter(text)
+
                 local_request_count += 1
             except Exception as e:
                 # print(f"[Process {pid}] Error filtering text (XML-RPC via LB): {e}", file=sys.stderr)
@@ -108,18 +117,25 @@ def worker_filter_text(lb_url, results_queue, n_msg):
         results_queue.put((local_request_count, local_error_count))
 
 # --- Main Test Function ---
-def run_stress_test(mode, lb_url, messages, num_service_instances):
+def run_stress_test(mode, lb_url, messages, service_url, filter_url):
     print(f"Starting XML-RPC stress test in mode '{mode}' via Load Balancer...")
-    print(f"Load Balancer URL: {lb_url}")
     print("-" * 30)
+
+    num_service_instances = 0
+    url = []
+
 
     worker_function = None
     get_count_method_name = "get_processed_count"  # To store the name of the method to get counts from LB
 
     if mode == 'add_insult':
         worker_function = worker_add_insult
+        num_service_instances = len(service_url)
+        url = service_url
     elif mode == 'filter_text':
         worker_function = worker_filter_text
+        num_service_instances = len(filter_url)
+        url = filter_url
     else:
         print(f"Error: Mode '{mode}' not recognized. Valid modes are 'add_insult' or 'filter_text'.", file=sys.stderr)
         return
@@ -141,6 +157,8 @@ def run_stress_test(mode, lb_url, messages, num_service_instances):
         print(f"Severe error connecting to Redis in run_stress_test: {e}", file=sys.stderr)
         exit(1)
 
+    redis_client.set(REDIS_COUNTER, 0)
+
     n_messages = messages // DEFAULT_CONCURRENCY
     results_queue = Queue()
     processes = []
@@ -149,7 +167,7 @@ def run_stress_test(mode, lb_url, messages, num_service_instances):
     # Create and start worker processes
     print(f"Launching {DEFAULT_CONCURRENCY} worker processes for mode '{mode}'...")
     for _ in range(DEFAULT_CONCURRENCY):
-        process = Process(target=worker_function, args=(lb_url, results_queue, n_messages))
+        process = Process(target=worker_function, args=(url, results_queue, n_messages))
         processes.append(process)
         process.start()
 
@@ -245,8 +263,11 @@ if __name__ == "__main__":
                         help=f"Number of messages to send")
     parser.add_argument("-u", "--lb_url", type=str, default=LOAD_BALANCER_URL,
         help="URL of the XML-RPC Load Balancer (e.g., http://localhost:9000/RPC2).")
-    parser.add_argument("-n", "--num-service-instances", type=int, default=1, required=True,
-                        help=f"Number of service instances to retrieve stats from (default: 1)")
+    parser.add_argument("--service_urls", nargs='+', default=[],
+                        help="List of URLs of instances of InsultService (e.g., localhost:8000 localhost:8001)")
+    parser.add_argument("--filter_urls", nargs='+', default=[],
+                        help="List of URLs of instances of InsultFilter (e.g., localhost:8010 localhost:8011)")
+
     args = parser.parse_args()
 
-    run_stress_test(args.mode, args.lb_url, args.messages, args.num_service_instances)
+    run_stress_test(args.mode, args.lb_url, args.messages, args.service_urls, args.filter_urls)
