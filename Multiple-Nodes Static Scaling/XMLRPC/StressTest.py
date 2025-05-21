@@ -43,6 +43,7 @@ def worker_add_insult(urls, results_queue, n_msg):
         for server in servers:
             services.append(xmlrpc.client.ServerProxy(f"http://{server}/RPC2", allow_none=True, verbose=False))
 
+
         while local_request_count < n_msg:
             try:
                 insult = random.choice(INSULTS_TO_ADD) + str(random.randint(1, 100000))
@@ -123,6 +124,9 @@ def run_stress_test(mode, lb_url, messages, service_url, filter_url):
     else:
         print(f"Error: Mode '{mode}' not recognized. Valid modes are 'add_insult' or 'filter_text'.", file=sys.stderr)
         return
+    if num_service_instances == 0:
+        print(f"Error: No instances provided for mode '{mode}'.", file=sys.stderr)
+        exit(1)
 
     lb_main_proxy = None
     try:
