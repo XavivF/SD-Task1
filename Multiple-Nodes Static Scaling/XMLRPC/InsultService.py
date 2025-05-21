@@ -24,6 +24,7 @@ class Insults:
     def __init__(self):
         self.insults = []   # received insults
         self.subscribers = [] # Subscribers for this specific instance
+        self.counter_key = "COUNTER"
         self.client = redis.Redis(db=0, decode_responses=True)
 
     def add_subscriber(self, url):
