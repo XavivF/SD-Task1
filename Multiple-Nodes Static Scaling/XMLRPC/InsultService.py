@@ -5,6 +5,9 @@ from xmlrpc.server import SimpleXMLRPCServer
 import argparse
 import sys
 
+import redis
+
+
 # Restrict to a particular path.
 class RequestHandler(SimpleXMLRPCRequestHandler):
     rpc_paths = ('/RPC2',)
@@ -21,6 +24,7 @@ class Insults:
     def __init__(self):
         self.insults = []   # received insults
         self.subscribers = [] # Subscribers for this specific instance
+        self.client = redis.Redis(db=0, decode_responses=True)
 
     def add_subscriber(self, url):
         if url not in self.subscribers:
@@ -43,6 +47,7 @@ class Insults:
 
     def add_insult(self, insult):
         self.insults.append(insult)
+        self.client.incr(self.counter_key)
         # print(f"Instance on port {port} added insult: {insult}. Count: {self.counter.value}")
         return f"Insult added by instance on port {port}: {insult}"
 
