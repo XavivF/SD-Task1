@@ -141,6 +141,8 @@ if __name__ == "__main__":
 
     lb_instance = XmlrpcLoadBalancer(args.service_urls, args.filter_urls)
 
+    print(f"llsita proxies: {lb_instance.service_proxies}")
+
     # Create server
     try:
         with SimpleXMLRPCServer(('localhost', args.port), requestHandler=RequestHandler, allow_none=True) as server:

@@ -38,10 +38,20 @@ def worker_add_insult(lb_url, results_queue, n_msg):
         # Create a proxy to the Load Balancer
         lb_proxy = xmlrpc.client.ServerProxy(lb_url, allow_none=True, verbose=False)
 
+        service1 = xmlrpc.client.ServerProxy("http://localhost:8000/RPC2", allow_none=True, verbose=False)
+        service2 = xmlrpc.client.ServerProxy("http://localhost:8001/RPC2", allow_none=True, verbose=False)
+        service3 = xmlrpc.client.ServerProxy("http://localhost:8002/RPC2", allow_none=True, verbose=False)
+
         while local_request_count < n_msg:
             try:
                 insult = random.choice(INSULTS_TO_ADD) + str(random.randint(1, 100000))
-                lb_proxy.add_insult(insult)
+                actual_server = lb_proxy.get_next_service_proxy()
+                if actual_server == service1:
+                    service1.add_insult(insult)
+                elif actual_server == service2:
+                    service2.add_insult(insult)
+                elif actual_server == service3:
+                    service3.add_insult(insult)
                 local_request_count += 1
             except Exception as e:
                 print(f"[Process {pid}] Error adding insult (XML-RPC via LB): {e}", file=sys.stderr)
